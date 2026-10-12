@@ -212,3 +212,32 @@ def test_e1_load_is_unaffected_by_e2_files(tmp_path):
     for p in config.RAW_DIR.glob("E1_*.csv"):
         shutil.copy(p, tmp_path / p.name)
     assert load_matches(league="E1").equals(load_matches(tmp_path, league="E1"))
+
+
+# --- selection and alignment ------------------------------------------------------------
+
+def test_choose_config_uses_the_mean_of_league_rps_and_tie_breaks():
+    row = lambda v, xi, e0, e1: {"variant": v, "xi": xi, "rps_E0": e0, "rps_E1": e1,  # noqa: E731
+                                 "score": (e0 + e1) / 2}
+    rows = [row("plain", 0.003, 0.20, 0.22), row("move_shift", 0.003, 0.19, 0.23),
+            row("plain", 0.005, 0.199, 0.2205)]
+    assert jx.choose_config(rows) == rows[2]          # mean 0.20975 beats 0.21 and 0.21
+    tie = [row("move_shift", 0.001, 0.2, 0.22), row("plain", 0.005, 0.2, 0.22),
+           row("plain", 0.003, 0.2, 0.22)]
+    assert jx.choose_config(tie) == tie[2]            # plain first, then smaller xi
+
+
+def test_attach_aligns_on_league_date_and_teams_and_refuses_gaps():
+    base = pd.DataFrame({"date": pd.to_datetime(["2020-01-01", "2020-01-02"]),
+                         "home": ["A", "C"], "away": ["B", "D"], "p_h": [0.5, 0.4],
+                         "p_d": [0.3, 0.3], "p_a": [0.2, 0.3], "result": [0, 2]},
+                        index=[17, 42])
+    joint = pd.DataFrame({"league": ["E0", "E0", "E1"],
+                          "date": pd.to_datetime(["2020-01-02", "2020-01-01", "2020-01-01"]),
+                          "home": ["C", "A", "A"], "away": ["D", "B", "B"],
+                          "p_h": [0.1, 0.6, 0.9], "p_d": [0.2, 0.2, 0.05],
+                          "p_a": [0.7, 0.2, 0.05]})
+    out = jx.attach(base, joint, "E0")
+    assert list(out.index) == [17, 42] and out.p_h_joint.tolist() == [0.6, 0.1]
+    with pytest.raises(RuntimeError, match="missing"):
+        jx.attach(base, joint[joint.home == "A"], "E0")

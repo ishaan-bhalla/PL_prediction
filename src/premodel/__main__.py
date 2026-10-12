@@ -187,7 +187,7 @@ def main(argv=None):
     sc.add_argument("--no-refresh", action="store_true",
                     help="use existing CSVs and the cached results API response")
     ex = sub.add_parser("experiment", help="run a model experiment")
-    ex.add_argument("name", choices=["shrinkage", "championship"])
+    ex.add_argument("name", choices=["shrinkage", "championship", "joint"])
     args = parser.parse_args(argv)
 
     if args.command == "download":
@@ -209,9 +209,12 @@ def main(argv=None):
         if args.name == "shrinkage":
             from premodel.experiments import shrinkage
             shrinkage.run()
-        else:
+        elif args.name == "championship":
             from premodel.experiments import championship
             championship.run()
+        else:
+            from premodel.experiments import joint
+            joint.run()
     elif args.command in ("wallet", "commit", "verify", "audit", "reveal", "score"):
         {"wallet": cmd_wallet, "commit": cmd_commit, "verify": cmd_verify,
          "audit": cmd_audit, "reveal": cmd_reveal, "score": cmd_score}[args.command](args)
