@@ -25,7 +25,7 @@ import secrets
 from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Protocol
 
@@ -170,6 +170,14 @@ def round_memos(client: ChainClient, address: str, round_id: str,
     return out
 
 
+def require_devnet(client: ChainClient):
+    """Hard guard: there is no mainnet path. Raises unless the RPC node is devnet."""
+    genesis = client.genesis_hash()
+    if genesis != config.DEVNET_GENESIS_HASH:
+        raise CommitRefused(f"RPC genesis hash {genesis} is not devnet's "
+                            f"({config.DEVNET_GENESIS_HASH}); refusing")
+
+
 # --- rounds on disk ---------------------------------------------------------------------
 
 def parse_time(s: str) -> datetime:
@@ -260,9 +268,7 @@ def commit_round(round_dir: Path, client: ChainClient, signer: Signer, now: date
     if not test and signer.pubkey != canonical_signer:
         raise CommitRefused(f"signer {signer.pubkey} is not CANONICAL_SIGNER "
                             f"{canonical_signer}")
-    genesis = client.genesis_hash()
-    if genesis != config.DEVNET_GENESIS_HASH:
-        raise CommitRefused(f"RPC genesis hash {genesis} is not devnet's; refusing")
+    require_devnet(client)
 
     out.mkdir(parents=True, exist_ok=True)
     if test:
@@ -370,15 +376,34 @@ class AuditRow:
     round_id: str
     signature: str
     block_time: str | None
-    status: str  # revealed | unrevealed | mismatch | duplicate | malformed
+    status: str  # see AUDIT_OK / audit()
 
 
-def audit(client: ChainClient, signer: str = config.CANONICAL_SIGNER,
-          revealed_dir: Path = config.REVEALED_DIR) -> list[AuditRow]:
+AWAITING, OVERDUE = "awaiting reveal", "overdue"
+AUDIT_OK = frozenset({"revealed", AWAITING})
+
+
+def reveal_deadline(round_id: str, days: int = config.REVEAL_DEADLINE_DAYS) -> datetime:
+    """00:00 UTC on the round_id date + `days`: needs nothing but the memo."""
+    d = datetime.strptime(round_id[-10:], "%Y-%m-%d")  # "E0-2026-10-17" -> 2026-10-17
+    return d.replace(tzinfo=timezone.utc) + timedelta(days=days)
+
+
+def audit_ok(rows: list[AuditRow]) -> bool:
+    return all(r.status in AUDIT_OK for r in rows)
+
+
+def audit(client: ChainClient, now: datetime, signer: str = config.CANONICAL_SIGNER,
+          revealed_dir: Path = config.REVEALED_DIR,
+          deadline_days: int = config.REVEAL_DEADLINE_DAYS) -> list[AuditRow]:
     """Every premodel:v1 memo the signer has posted, checked against revealed/ folders.
 
-    Test-prefix memos are ignored. Anything other than "revealed" counts against the
-    record: a commitment that is never revealed could be a hidden bad prediction.
+    Statuses: revealed; awaiting reveal (not revealed, deadline not yet reached);
+    overdue (not revealed by the deadline); mismatch (revealed files do not hash to the
+    memo); duplicate (several memos for one round); malformed (unparseable premodel:
+    memo). Test-prefix memos are ignored. Anything except revealed / awaiting reveal
+    counts against the record: a commitment that is never revealed could be a hidden
+    bad prediction.
     """
     if not signer:
         raise ValueError("CANONICAL_SIGNER is not set")
@@ -398,13 +423,14 @@ def audit(client: ChainClient, signer: str = config.CANONICAL_SIGNER,
             bt = format_time(tx.block_time) if tx.block_time is not None else None
             rows.append(AuditRow(rid, tx.signature, bt,
                                  "duplicate" if len(items) > 1
-                                 else _reveal_status(revealed_dir / rid, tx, m)))
+                                 else _reveal_status(revealed_dir / rid, tx, m, now,
+                                                     deadline_days)))
     return sorted(rows, key=lambda r: (r.round_id, r.block_time or "", r.signature))
 
 
-def _reveal_status(d: Path, tx: TxInfo, m: Memo) -> str:
+def _reveal_status(d: Path, tx: TxInfo, m: Memo, now: datetime, deadline_days: int) -> str:
     if not d.is_dir():
-        return "unrevealed"
+        return AWAITING if now < reveal_deadline(m.round_id, deadline_days) else OVERDUE
     try:
         rec = json.loads((d / COMMIT_FILE).read_bytes())
         ok = (rec["signature"] == tx.signature and m.commitment == compute_commitment(

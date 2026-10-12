@@ -284,16 +284,38 @@ def test_verify_fails_when_commit_json_disagrees_with_chain(env):
 
 # --- audit ------------------------------------------------------------------------------
 
-def test_audit_flags_unrevealed_rounds_and_ignores_test_memos(env):
+DEADLINE = datetime(2026, 10, 27, tzinfo=timezone.utc)  # RID date + REVEAL_DEADLINE_DAYS
+
+
+def run_audit(env, now=NOW):
+    rows = cm.audit(env["client"], now, signer=CANON, revealed_dir=env["revealed"])
+    return [(r.round_id, r.status) for r in rows], cm.audit_ok(rows)
+
+
+def test_reveal_deadline_comes_from_the_round_id_alone():
+    assert cm.config.REVEAL_DEADLINE_DAYS == 10
+    assert cm.reveal_deadline(RID) == DEADLINE
+
+
+@pytest.mark.parametrize("now, status, ok", [
+    (NOW, "awaiting reveal", True),
+    (DEADLINE - timedelta(seconds=1), "awaiting reveal", True),
+    (DEADLINE, "overdue", False),
+    (DEADLINE + timedelta(days=30), "overdue", False),
+])
+def test_audit_unrevealed_round_is_awaiting_then_overdue(env, now, status, ok):
+    commit(env)
+    assert run_audit(env, now) == ([(RID, status)], ok)
+
+
+def test_audit_ignores_test_memos_and_passes_once_revealed(env):
     commit(env)
     commit(env, test=True)
     env["client"].post(cm.build_memo("E0-2026-10-24", "c" * 64, test=True), payer=CANON)
-    rows = cm.audit(env["client"], signer=CANON, revealed_dir=env["revealed"])
-    assert [(r.round_id, r.status) for r in rows] == [(RID, "unrevealed")]
+    assert run_audit(env, DEADLINE) == ([(RID, "overdue")], False)
 
     shutil.copytree(env["round"], env["revealed"] / RID)
-    rows = cm.audit(env["client"], signer=CANON, revealed_dir=env["revealed"])
-    assert [(r.round_id, r.status) for r in rows] == [(RID, "revealed")]
+    assert run_audit(env, DEADLINE) == ([(RID, "revealed")], True)
 
 
 def test_audit_flags_mismatched_reveals_duplicates_and_malformed_memos(env):
@@ -305,8 +327,9 @@ def test_audit_flags_mismatched_reveals_duplicates_and_malformed_memos(env):
     env["client"].post(cm.build_memo("E0-2026-10-24", "e" * 64), payer=CANON)
     env["client"].post(cm.build_memo("E0-2026-10-31", "f" * 64), payer=CANON,
                        succeeded=False)  # failed txs post nothing
-    rows = cm.audit(env["client"], signer=CANON, revealed_dir=env["revealed"])
-    assert sorted((r.round_id, r.status) for r in rows) == [
+    rows, ok = run_audit(env)
+    assert not ok
+    assert sorted(rows) == [
         (RID, "mismatch"), ("E0-2026-10-24", "duplicate"), ("E0-2026-10-24", "duplicate"),
         ("premodel:v1:garbage", "malformed")]
 

@@ -18,6 +18,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.5"]
+# On-chain commit-reveal (Solana devnet). Pinned: onchain.py is checked against these APIs.
+onchain = ["solana==0.40.3", "solders==0.29.0"]
 
 [project.scripts]
 premodel = "premodel.__main__:main"
