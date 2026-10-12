@@ -13,8 +13,8 @@ TRACK_RECORD_PATH = PREDICTIONS_DIR / "track_record.csv"
 
 # football-data.co.uk season codes: "1415" = 2014/15
 SEASONS = [f"{y % 100:02d}{(y + 1) % 100:02d}" for y in range(2014, 2027)]
-# football-data.co.uk league codes: E0 = Premier League, E1 = Championship
-LEAGUES = ["E0", "E1"]
+# football-data.co.uk league codes: E0 = Premier League, E1 = Championship, E2 = League One
+LEAGUES = ["E0", "E1", "E2"]  # E2 = League One
 DEFAULT_LEAGUE = "E0"
 DOWNLOAD_URL = "https://www.football-data.co.uk/mmz4281/{code}/{league}.csv"
 CURRENT_SEASON = SEASONS[-1]
