@@ -1,3 +1,4 @@
+CLAUDE.md
 # macOS
 .DS_Store
 
@@ -21,3 +22,6 @@ data/processed/*
 # Secrets (wallet keys, API keys) — never commit
 .env
 *.keypair.json
+
+# Forward predictions stay private until they are revealed
+predictions/pending/

@@ -48,12 +48,22 @@ def _pick_odds(df: pd.DataFrame, preferred: list[str], fallback: list[str]):
     return out, src
 
 
+def open_odds(df: pd.DataFrame):
+    """Pre-match 3-way odds: Pinnacle where available, else market average."""
+    return _pick_odds(df, ["PSH", "PSD", "PSA"], ["AvgH", "AvgD", "AvgA"])
+
+
+def close_odds(df: pd.DataFrame):
+    """Closing 3-way odds: Pinnacle where available, else market average."""
+    return _pick_odds(df, ["PSCH", "PSCD", "PSCA"], ["AvgCH", "AvgCD", "AvgCA"])
+
+
 def load_season(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path, encoding="utf-8-sig")
     df = df.dropna(subset=["HomeTeam", "AwayTeam"])
     df["Date"] = pd.to_datetime(df["Date"], dayfirst=True, format="mixed")
-    open_odds, open_src = _pick_odds(df, ["PSH", "PSD", "PSA"], ["AvgH", "AvgD", "AvgA"])
-    close_odds, close_src = _pick_odds(df, ["PSCH", "PSCD", "PSCA"], ["AvgCH", "AvgCD", "AvgCA"])
+    open_odds_, open_src = open_odds(df)
+    close_odds_, close_src = close_odds(df)
     return pd.DataFrame({
         "season": _season_label(path),
         "date": df["Date"].to_numpy(),
@@ -61,8 +71,8 @@ def load_season(path: Path) -> pd.DataFrame:
         "away": df["AwayTeam"].str.strip().to_numpy(),
         "hg": df["FTHG"].to_numpy(),
         "ag": df["FTAG"].to_numpy(),
-        "open_h": open_odds[:, 0], "open_d": open_odds[:, 1], "open_a": open_odds[:, 2],
-        "close_h": close_odds[:, 0], "close_d": close_odds[:, 1], "close_a": close_odds[:, 2],
+        "open_h": open_odds_[:, 0], "open_d": open_odds_[:, 1], "open_a": open_odds_[:, 2],
+        "close_h": close_odds_[:, 0], "close_d": close_odds_[:, 1], "close_a": close_odds_[:, 2],
         "open_src": open_src, "close_src": close_src,
     })
 
