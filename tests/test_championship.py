@@ -109,3 +109,11 @@ def test_entrants_split_relegated_from_above_and_promoted_from_below():
         if tags:
             expected[(h, a)] = "from_above" if "from_above" in tags else "from_below"
     assert got == expected and set(got.values()) == {"from_above", "from_below"}
+
+
+def test_figure_renders_from_the_committed_summary(tmp_path):
+    from premodel.experiments.championship_plot import render
+    summary = ch.OUT_DIR / "summary.json"
+    if not summary.exists():
+        pytest.skip("no experiment summary yet")
+    assert render(summary, tmp_path / "fig.png").stat().st_size > 10_000

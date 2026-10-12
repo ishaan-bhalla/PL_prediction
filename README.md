@@ -103,6 +103,16 @@ reveal should be read as a hidden bad forecast.
 Caveats: this is devnet, not mainnet, so it proves timing and integrity rather
 than economic stake. Block times are validator estimates (seconds of drift).
 
+## Experiments
+
+Analysis notes with decision rules set in advance (any deviation is disclosed in the note):
+
+- [Shrinking low-sample team ratings](reports/experiments/shrinkage/README.md):
+  removes extreme probabilities for promoted teams, but no detectable overall RPS gain.
+- [Is the Championship market softer?](reports/experiments/championship/README.md):
+  no. The same model's gap to the market is not smaller in the Championship
+  (nominally larger), its bets do not beat random bets, and blending adds nothing.
+
 ## Method
 
 - **Model**: home goals ~ Poisson(exp(γ + att_home + def_away)), away goals ~
