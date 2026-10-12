@@ -50,7 +50,7 @@ KEYPAIR_PATH = Path("~/.config/solana/premodel-devnet.json")            # env SO
 TEST_KEYPAIR_PATH = Path("~/.config/solana/premodel-devnet-test.json")  # SOLANA_TEST_KEYPAIR
 # Public key of the wallet whose memos form the official record. Empty until set;
 # commit (real), verify and audit refuse to run without it.
-CANONICAL_SIGNER = ""
+CANONICAL_SIGNER = "EKjxGc617c1YqVYGPGGNZutuLcHHnoEGR1Ku5iFjJSxo"
 REVEAL_DELAY_HOURS = 3  # reveal allowed from last kickoff + this
 # audit: an unrevealed round is "awaiting reveal" until 00:00 UTC on its round_id date
 # + this many days, then "overdue". Derived from the memo alone, so anyone can apply it.
