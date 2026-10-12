@@ -357,6 +357,8 @@ def run(out_dir: Path = OUT_DIR) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "summary.json").write_text(json.dumps(_clean(summary), indent=2) + "\n")
     _print(summary)
+    from premodel.experiments.joint_plot import render
+    print(f"wrote {render(out_dir / 'summary.json', out_dir / 'joint.png')}")
     return summary
 
 

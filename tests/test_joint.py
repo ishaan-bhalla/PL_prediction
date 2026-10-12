@@ -241,3 +241,11 @@ def test_attach_aligns_on_league_date_and_teams_and_refuses_gaps():
     assert list(out.index) == [17, 42] and out.p_h_joint.tolist() == [0.6, 0.1]
     with pytest.raises(RuntimeError, match="missing"):
         jx.attach(base, joint[joint.home == "A"], "E0")
+
+
+def test_figure_renders_from_the_committed_summary(tmp_path):
+    from premodel.experiments.joint_plot import render
+    summary = jx.OUT_DIR / "summary.json"
+    if not summary.exists():
+        pytest.skip("no experiment summary yet")
+    assert render(summary, tmp_path / "fig.png").stat().st_size > 10_000

@@ -112,6 +112,10 @@ Analysis notes with decision rules set in advance (any deviation is disclosed in
 - [Is the Championship market softer?](reports/experiments/championship/README.md):
   no. The same model's gap to the market is not smaller in the Championship
   (nominally larger), its bets do not beat random bets, and blending adds nothing.
+- [A joint multi-league model](reports/experiments/joint/README.md): one rating per
+  team across the top three divisions. Better in the Championship and for newly
+  promoted or relegated teams; no detectable change in the Premier League; still no
+  edge over the market.
 
 ## Method
 
