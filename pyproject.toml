@@ -29,6 +29,8 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: long checks, opt-in with `pytest -m slow`"]
+addopts = "-m 'not slow'"
 
 [tool.ruff]
 line-length = 100

@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from premodel.config import DOWNLOAD_URL, RAW_DIR, SEASONS
+from premodel.config import DEFAULT_LEAGUE, DOWNLOAD_URL, RAW_DIR, SEASONS
 
 RESULT_LABELS = {0: "H", 1: "D", 2: "A"}
 
@@ -24,15 +24,24 @@ def season_of(date: pd.Timestamp) -> str:
     return f"{y}/{(y + 1) % 100:02d}"
 
 
-def download(seasons: list[str] = SEASONS, dest: Path = RAW_DIR, overwrite: bool = False):
-    """Fetch E0.csv for each season code (e.g. "1415") into data/raw/E0_<code>.csv."""
+def season_path(code: str, league: str = DEFAULT_LEAGUE, raw_dir: Path = RAW_DIR) -> Path:
+    """data/raw/<league>_<code>.csv, e.g. E0_1415.csv."""
+    return raw_dir / f"{league}_{code}.csv"
+
+
+def download(seasons: list[str] = SEASONS, dest: Path = RAW_DIR, overwrite: bool = False,
+             league: str = DEFAULT_LEAGUE):
+    """Fetch <league>.csv for each season code (e.g. "1415") into data/raw/<league>_<code>.csv.
+
+    league: football-data.co.uk code, "E0" (Premier League, default) or "E1" (Championship).
+    """
     dest.mkdir(parents=True, exist_ok=True)
     for code in seasons:
-        path = dest / f"E0_{code}.csv"
+        path = season_path(code, league, dest)
         if path.exists() and not overwrite:
             print(f"skip   {path.name} (exists)")
             continue
-        urllib.request.urlretrieve(DOWNLOAD_URL.format(code=code), path)
+        urllib.request.urlretrieve(DOWNLOAD_URL.format(code=code, league=league), path)
         print(f"saved  {path.name}")
 
 
@@ -83,12 +92,13 @@ def load_season(path: Path) -> pd.DataFrame:
     })
 
 
-def load_matches(raw_dir: Path = RAW_DIR) -> pd.DataFrame:
-    """All played matches, sorted by date, with result coded 0=H 1=D 2=A."""
-    paths = sorted(raw_dir.glob("E0_*.csv"))
+def load_matches(raw_dir: Path = RAW_DIR, league: str = DEFAULT_LEAGUE) -> pd.DataFrame:
+    """All played matches of one league, sorted by date, with result coded 0=H 1=D 2=A."""
+    paths = sorted(raw_dir.glob(f"{league}_*.csv"))
     if not paths:
-        raise FileNotFoundError(
-            f"No E0_*.csv files in {raw_dir}. Run `python -m premodel download` first.")
+        flag = "" if league == DEFAULT_LEAGUE else f" --league {league}"
+        raise FileNotFoundError(f"No {league}_*.csv files in {raw_dir}. "
+                                f"Run `python -m premodel download{flag}` first.")
     m = pd.concat([load_season(p) for p in paths], ignore_index=True)
     m = m.sort_values(["date", "home"], kind="stable").reset_index(drop=True)
     m = m[m["hg"].notna() & m["ag"].notna()].copy()

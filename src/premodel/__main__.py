@@ -151,7 +151,10 @@ def main(argv=None):
     sub = parser.add_subparsers(dest="command", required=True, metavar="command")
     dl = sub.add_parser("download", help="fetch season CSVs into data/raw/")
     dl.add_argument("--overwrite", action="store_true", help="re-download existing files")
-    sub.add_parser("coverage", help="matches and odds sources per season")
+    dl.add_argument("--league", default=config.DEFAULT_LEAGUE, choices=config.LEAGUES,
+                    help="E0 = Premier League (default), E1 = Championship")
+    cv = sub.add_parser("coverage", help="matches and odds sources per season")
+    cv.add_argument("--league", default=config.DEFAULT_LEAGUE, choices=config.LEAGUES)
     sub.add_parser("backtest", help="tune decay + walk-forward backtest")
     sub.add_parser("plots", help="render reports/figures/backtest_summary.png")
     sub.add_parser("all", help="backtest + plots")
@@ -189,10 +192,10 @@ def main(argv=None):
 
     if args.command == "download":
         from premodel.data import download
-        download(overwrite=args.overwrite)
+        download(overwrite=args.overwrite, league=args.league)
     elif args.command == "coverage":
         from premodel.data import coverage_report, load_matches
-        print(coverage_report(load_matches()).to_string())
+        print(coverage_report(load_matches(league=args.league)).to_string())
     elif args.command in ("backtest", "all"):
         from premodel.backtest import run
         run()
