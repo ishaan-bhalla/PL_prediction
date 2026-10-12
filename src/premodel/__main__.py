@@ -11,6 +11,8 @@ Commands
   commit     post the round's salted hash as a devnet memo -> commit.json
   verify     check a round's files against its on-chain commitment (PASS / FAIL)
   audit      list every premodel:v1 memo by CANONICAL_SIGNER and flag unrevealed ones
+  reveal     move a finished, committed round to predictions/revealed/ (commit it to git)
+  score      score revealed rounds -> predictions/track_record.csv, print the summary
 
 On-chain commands need  pip install -e ".[onchain]"  and only ever talk to devnet.
 """
@@ -101,6 +103,32 @@ def cmd_verify(args):
     sys.exit(0 if ok else 1)
 
 
+def cmd_reveal(args):
+    from premodel.commitment import resolve_round
+    from premodel.track_record import RevealRefused, reveal_round
+    try:
+        dest = reveal_round(resolve_round(args.round, committed=True),
+                            datetime.now(timezone.utc), force=args.force)
+    except (RevealRefused, ValueError, FileNotFoundError) as e:
+        raise SystemExit(f"reveal refused: {e}") from None
+    print(f"revealed -> {dest.relative_to(config.ROOT)}  (commit this folder to git)")
+
+
+def cmd_score(args):
+    from premodel.data import download, load_matches
+    from premodel.results import get_api_results, merge_results
+    from premodel.track_record import run_score
+    if not args.no_refresh:
+        download([config.CURRENT_SEASON], overwrite=True)
+    api, status = get_api_results(not args.no_refresh)
+    print(status)
+    results = merge_results(load_matches(), api.rows if api else None)
+    try:
+        run_score(results, datetime.now(timezone.utc), round_id=args.round)
+    except (FileNotFoundError, ValueError) as e:
+        raise SystemExit(f"score: {e}") from None
+
+
 def cmd_audit(args):
     from premodel.commitment import audit, audit_ok
     signer = args.signer or config.CANONICAL_SIGNER
@@ -145,6 +173,14 @@ def main(argv=None):
     ve.add_argument("--signer", help="expected signer pubkey (default: CANONICAL_SIGNER)")
     au = sub.add_parser("audit", help="flag committed rounds that were never revealed")
     au.add_argument("--signer", help="signer pubkey to audit (default: CANONICAL_SIGNER)")
+    rv = sub.add_parser("reveal", help="move a finished committed round to revealed/")
+    rv.add_argument("--round", help="round id (default: the only committed pending round)")
+    rv.add_argument("--force", action="store_true",
+                    help=f"reveal before last kickoff + {config.REVEAL_DELAY_HOURS}h")
+    sc = sub.add_parser("score", help="score revealed rounds -> predictions/track_record.csv")
+    sc.add_argument("--round", help="score only this revealed round (default: all)")
+    sc.add_argument("--no-refresh", action="store_true",
+                    help="use existing CSVs and the cached results API response")
     args = parser.parse_args(argv)
 
     if args.command == "download":
@@ -162,9 +198,9 @@ def main(argv=None):
             run_predict(refresh=not args.no_refresh, allow_stale=args.allow_stale)
         except (NoFixturesError, StaleDataError) as e:
             raise SystemExit(f"predict: {e}") from None
-    elif args.command in ("wallet", "commit", "verify", "audit"):
+    elif args.command in ("wallet", "commit", "verify", "audit", "reveal", "score"):
         {"wallet": cmd_wallet, "commit": cmd_commit, "verify": cmd_verify,
-         "audit": cmd_audit}[args.command](args)
+         "audit": cmd_audit, "reveal": cmd_reveal, "score": cmd_score}[args.command](args)
     if args.command in ("plots", "all"):
         from premodel.plots import render
         render()

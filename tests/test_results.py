@@ -8,33 +8,60 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from premodel import forward, results
+from premodel import config, forward, results
 from test_forward import FIXTURES, GIT, NOW, make_matches
 
 DOC = json.loads((Path(__file__).parent / "data" / "football_data_org_finished.json")
                  .read_text(encoding="utf-8"))
-# make_matches() reuses (home, away) pairs within a season, unlike a real league, so
-# API-only rows below use teams T6-T8 that never appear in the synthetic CSV.
-SYNTH_NAMES = {f"Team {i}": f"T{i}" for i in range(9)}
+# make_matches() (T0-T5) reuses (home, away) pairs within a season, unlike a real league,
+# so the API schedule below is a separate complete double round-robin of A0-A3.
+SYNTH_NAMES = {f"Team {t}": t for t in [f"T{i}" for i in range(6)] + ["A0", "A1", "A2", "A3"]}
+TEAMS_A = ["A0", "A1", "A2", "A3"]
+PAIRS_A = [(h, a) for h in TEAMS_A for a in TEAMS_A if h != a]  # 12 matches
 
 
 def api_doc(matches) -> dict:
-    """matches: (home, away, utcDate, hg, ag) with synthetic 'Team i' names."""
+    """matches: (home, away, utcDate, status, hg, ag) using CSV-style synthetic names."""
     return {"fetched_at": "2026-10-15T08:00:00Z", "response": {"matches": [
-        {"id": i, "utcDate": d, "status": "FINISHED",
-         "homeTeam": {"shortName": f"Team {h[1:]}"}, "awayTeam": {"shortName": f"Team {a[1:]}"},
+        {"id": i, "utcDate": d, "status": st,
+         "homeTeam": {"shortName": f"Team {h}"}, "awayTeam": {"shortName": f"Team {a}"},
          "score": {"fullTime": {"home": hg, "away": ag}}}
-        for i, (h, a, d, hg, ag) in enumerate(matches)]}}
+        for i, (h, a, d, st, hg, ag) in enumerate(matches)]}}
+
+
+def season(drop=(), status=None, dates=None):
+    """A0-A3 schedule: matches 0-5 weekly from 5 Sep (FINISHED), 6-11 from 24 Oct (TIMED).
+
+    drop: indices the (flaky) response omits; status/dates: {index: override}."""
+    status, dates = status or {}, dates or {}
+    rows = []
+    for i, (h, a) in enumerate(PAIRS_A):
+        if i in drop:
+            continue
+        d = dates.get(i) or (pd.Timestamp("2026-09-05T14:00Z") + pd.Timedelta(weeks=i) if i < 6
+                             else pd.Timestamp("2026-10-24T14:00Z") + pd.Timedelta(weeks=i - 6))
+        st = status.get(i, "FINISHED" if i < 6 else "TIMED")
+        score = (1, 0) if st == "FINISHED" else (None, None)
+        rows.append((h, a, pd.Timestamp(d).strftime("%Y-%m-%dT%H:%M:%SZ"), st, *score))
+    return rows
 
 
 def api_results(matches, live=True) -> results.ApiResults:
-    return results.ApiResults(results.parse(api_doc(matches), SYNTH_NAMES), live,
-                              "2026-10-15T08:00:00Z")
+    doc = api_doc(matches)
+    return results.ApiResults(results.parse(doc, SYNTH_NAMES), results.schedule(doc, SYNTH_NAMES),
+                              live, "2026-10-15T08:00:00Z")
 
 
 @pytest.fixture
-def dirs(tmp_path):
+def dirs(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "SEASON_MATCHES", len(PAIRS_A))
     return {"pending_dir": tmp_path / "pending", "revealed_dir": tmp_path / "revealed"}
+
+
+def predict(api, matches=None, **kw):
+    dirs = kw.pop("dirs")
+    return forward.predict_round(make_matches() if matches is None else matches, FIXTURES,
+                                 NOW, git=GIT, api=api, **dirs, **kw)
 
 
 # --- parsing and names ------------------------------------------------------------------
@@ -56,6 +83,12 @@ def test_unmapped_team_names_fail_loudly_listing_all_of_them():
     doc["response"]["matches"][2]["awayTeam"]["shortName"] = "Manchester Blue"
     with pytest.raises(ValueError, match=r"\['Hull Tigers', 'Manchester Blue'\]"):
         results.parse(doc)
+
+
+def test_schedule_keeps_every_status():
+    sched = results.schedule(DOC)
+    assert list(sched.status) == ["FINISHED"] * 3 + ["TIMED"]
+    assert (sched.home.iloc[-1], sched.away.iloc[-1]) == ("Arsenal", "Chelsea")
 
 
 def test_finished_match_without_score_is_an_error():
@@ -82,51 +115,68 @@ def test_merge_keeps_csv_rows_and_only_fills_missing_matches():
 
 # --- completeness check in predict ------------------------------------------------------
 
-def test_completeness_passes_when_api_gaps_are_filled(dirs):
-    m = make_matches(end="2026-10-10")  # CSV lags; API has the rest of the week
-    api = api_results([("T6", "T0", "2026-10-12T14:00:00Z", 1, 0),
-                       ("T7", "T8", "2026-10-16T19:00:00Z", 2, 2)])
-    payload = forward.predict_round(m, FIXTURES, NOW, git=GIT, api=api, **dirs)
+def test_complete_schedule_passes_and_api_fills_the_csv_gaps(dirs):
+    payload = predict(api_results(season()), dirs=dirs)
     assert payload["staleness_check"] == "api_completeness"
     assert payload["stale_override"] is False
-    assert payload["training"]["n_api_rows"] == 2
-    assert payload["training"]["last_match_date"] == "2026-10-16"
+    assert payload["training"]["n_api_rows"] == 6  # A0-A3 results exist only in the API
 
 
-def test_completeness_fails_on_a_finished_match_missing_from_training(dirs):
-    # Finished at 12:30 UK on the first kickoff's date: excluded by the strictly-before-
-    # date training rule, so the model would be missing a result it could have had.
-    api = api_results([("T6", "T7", "2026-10-17T09:00:00Z", 3, 0)])
-    fx = FIXTURES.iloc[:1]  # T0 v T1 at 14:00Z
-    with pytest.raises(forward.StaleDataError, match="2026-10-17 T6 v T7"):
-        forward.predict_round(make_matches(), fx, NOW, git=GIT, api=api, **dirs)
-    payload = forward.predict_round(make_matches(), fx, NOW, git=GIT, api=api,
-                                    allow_stale=True, **dirs)
-    assert payload["stale_override"] is True
+def test_flaky_response_missing_finished_matches_refuses(dirs):
+    # The response silently omits a finished match (as seen live on 2026-10-12).
+    with pytest.raises(forward.StaleDataError, match="lists 11 of 12 matches"):
+        predict(api_results(season(drop={3})), dirs=dirs)
+    payload = predict(api_results(season(drop={3})), allow_stale=True, dirs=dirs)
+    assert payload["stale_override"] is True and payload["training"]["n_api_rows"] == 5
 
 
-def test_missing_finished_lists_api_matches_absent_from_train():
-    api = api_results([("T6", "T7", "2026-10-01T14:00:00Z", 1, 1),
-                       ("T2", "T3", "2026-10-20T14:00:00Z", 1, 1)])  # after kickoff: ignored
-    train = make_matches(end="2026-09-30")
-    assert forward.missing_finished(api.rows, train, pd.Timestamp("2026-10-17", tz="UTC")) \
-        == ["2026-10-01 T6 v T7"]
+@pytest.mark.parametrize("st", ["TIMED", "SCHEDULED", "IN_PLAY", "PAUSED", "AWARDED"])
+def test_past_match_without_finished_status_refuses(dirs, st):
+    with pytest.raises(forward.StaleDataError, match=rf"A0 v A1 \({st}\)"):
+        predict(api_results(season(status={0: st})), dirs=dirs)
 
 
-def test_long_break_with_no_finished_matches_passes(dirs):
-    m = make_matches(end="2026-09-20")  # 27 days before kickoff: calendar rule would refuse
-    payload = forward.predict_round(m, FIXTURES, NOW, git=GIT, api=api_results([]), **dirs)
+@pytest.mark.parametrize("st", ["POSTPONED", "CANCELLED", "SUSPENDED"])
+def test_postponed_match_passes(dirs, st):
+    payload = predict(api_results(season(status={2: st})), dirs=dirs)
+    assert payload["stale_override"] is False and payload["training"]["n_api_rows"] == 5
+
+
+def test_long_break_with_no_matches_passes(dirs):
+    # CSV ends 27 days before the first kickoff (the calendar rule would refuse), and the
+    # schedule has nothing between then and the round.
+    early = {i: pd.Timestamp("2026-09-01T14:00Z") + pd.Timedelta(days=i) for i in range(6)}
+    payload = predict(api_results(season(dates=early)), matches=make_matches(end="2026-09-20"),
+                      dirs=dirs)
     assert payload["staleness_check"] == "api_completeness"
-    assert payload["stale_override"] is False and payload["training"]["n_api_rows"] == 0
+    assert payload["stale_override"] is False
+
+
+def test_match_finished_earlier_on_the_first_kickoff_date_refuses(dirs):
+    # 09:00Z on 17 Oct, before the round's 11:30Z first kickoff: finished, but excluded by
+    # the strictly-before-date training rule.
+    sched = season(dates={5: pd.Timestamp("2026-10-17T09:00Z")})
+    with pytest.raises(forward.StaleDataError, match=r"2026-10-17 A1 v A3 \(missing from"):
+        predict(api_results(sched), dirs=dirs)
+
+
+def test_schedule_problems_lists_each_problem(dirs):
+    api = api_results(season(drop={0}, status={1: "TIMED", 2: "POSTPONED"}))
+    train = make_matches()
+    assert forward.schedule_problems(api.schedule, train, pd.Timestamp("2026-10-17", tz="UTC")) \
+        == ["API schedule lists 11 of 12 matches (incomplete response)",
+            "2026-09-12 A0 v A2 (TIMED)",
+            "2026-09-26 A1 v A0 (missing from training)",
+            "2026-10-03 A1 v A2 (missing from training)",
+            "2026-10-10 A1 v A3 (missing from training)"]
 
 
 def test_without_live_api_the_calendar_rule_still_applies(dirs):
-    m = make_matches(end="2026-09-20")
-    cached = api_results([], live=False)
+    early = {i: pd.Timestamp("2026-09-01T14:00Z") + pd.Timedelta(days=i) for i in range(6)}
+    cached = api_results(season(dates=early), live=False)
     with pytest.raises(forward.StaleDataError, match="no live results API"):
-        forward.predict_round(m, FIXTURES, NOW, git=GIT, api=cached, **dirs)
-    payload = forward.predict_round(make_matches(), FIXTURES, NOW, git=GIT, api=cached, **dirs)
-    assert payload["staleness_check"] == "calendar"
+        predict(cached, matches=make_matches(end="2026-09-20"), dirs=dirs)
+    assert predict(cached, dirs=dirs)["staleness_check"] == "calendar"
 
 
 # --- fetching, cache, key handling (no network) -----------------------------------------

@@ -1,17 +1,19 @@
-"""Finished Premier League results from football-data.org (API v4).
+"""Premier League schedule and results from football-data.org (API v4).
 
 football-data.co.uk's E0.csv lags a few days behind each round, so this is a second
 results source. The CSV stays authoritative: API rows only fill matches the CSV does
-not have yet (same season, home and away), and they carry no odds.
+not have yet (same season, home and away), and they carry no odds. The request covers
+the current season's whole schedule (all statuses), which predict uses to check that
+every match due before the round is in the training data.
 
 The API key comes from env FOOTBALL_DATA_API_KEY, or a FOOTBALL_DATA_API_KEY=... line
 in .env. It is sent only as the X-Auth-Token header and never printed or logged.
 Each run makes at most one request; the response is cached in data/processed/.
 
-The API does not always return every finished match (on 2026-10-12 a response omitted
-three matches an earlier response that day had listed as FINISHED). A finished match
-never un-finishes, so the cache is cumulative: finished matches from the previous
-cached response that a new response omits are carried over (by match id, same season).
+The API does not always return every match (on 2026-10-12 a response omitted three
+matches an earlier response that day had listed as FINISHED). The cache is therefore
+cumulative: matches from the previous cached response that a new response omits are
+carried over (by match id, same season; the newer response wins for ids in both).
 """
 import json
 import os
@@ -36,8 +38,9 @@ class ApiUnavailable(RuntimeError):
 
 @dataclass(frozen=True)
 class ApiResults:
-    rows: pd.DataFrame  # load_matches() columns + kickoff_utc + source="api"
-    live: bool          # fetched during this run (False: read from the cache)
+    rows: pd.DataFrame      # FINISHED matches: load_matches() columns + kickoff_utc, source
+    schedule: pd.DataFrame  # every match: season, date, home, away, kickoff_utc, status
+    live: bool              # fetched during this run (False: read from the cache)
     fetched_at: str
 
 
@@ -80,39 +83,48 @@ def fetch(url: str = config.RESULTS_API_URL, cache: Path = config.RESULTS_API_CA
 
 
 def _carry_over(body: dict, prev: dict | None) -> int:
-    """Append finished matches from `prev` that `body` omits (same season). Returns count."""
+    """Append matches from `prev` that `body` omits (same season). Returns the count."""
     if not prev:
         return 0
     old = prev["response"]
     if old.get("filters", {}).get("season") != body.get("filters", {}).get("season"):
         return 0
     ids = {m["id"] for m in body["matches"]}
-    carry = [m for m in old["matches"] if m["status"] == "FINISHED" and m["id"] not in ids]
+    carry = [m for m in old["matches"] if m["id"] not in ids]
     body["matches"] = body["matches"] + carry
     return len(carry)
 
 
-def parse(doc: dict, names: dict[str, str] = config.API_TEAM_NAMES) -> pd.DataFrame:
-    """API response -> rows shaped like data.load_matches(), plus kickoff_utc and source."""
+def schedule(doc: dict, names: dict[str, str] = config.API_TEAM_NAMES) -> pd.DataFrame:
+    """Every match in the response with CSV team names, UK date, kickoff, status, score."""
     rows, unmapped = [], set()
     for m in doc["response"]["matches"]:
-        if m["status"] != "FINISHED":
-            continue
         home, away = (names.get(m[t]["shortName"]) for t in ("homeTeam", "awayTeam"))
         unmapped |= {m[t]["shortName"] for t, n in (("homeTeam", home), ("awayTeam", away))
                      if n is None}
-        ft = m["score"]["fullTime"]
-        if ft["home"] is None or ft["away"] is None:
-            raise ValueError(f"FINISHED match without a full-time score: {m.get('id')}")
         kickoff = pd.Timestamp(m["utcDate"])
         date = kickoff.tz_convert(config.KICKOFF_TZ).normalize().tz_localize(None)  # UK date
+        ft = m.get("score", {}).get("fullTime", {})
         rows.append({"season": season_of(date), "date": date, "home": home, "away": away,
-                     "hg": int(ft["home"]), "ag": int(ft["away"]), "kickoff_utc": kickoff})
+                     "kickoff_utc": kickoff, "status": m["status"],
+                     "hg": ft.get("home"), "ag": ft.get("away"), "id": m.get("id")})
     if unmapped:
         raise ValueError(f"football-data.org team names missing from config.API_TEAM_NAMES: "
                          f"{sorted(unmapped)}")
-    df = pd.DataFrame(rows, columns=["season", "date", "home", "away", "hg", "ag",
-                                     "kickoff_utc"])
+    cols = ["season", "date", "home", "away", "kickoff_utc", "status", "hg", "ag", "id"]
+    return (pd.DataFrame(rows, columns=cols)
+            .sort_values(["kickoff_utc", "home"], kind="stable").reset_index(drop=True))
+
+
+def parse(doc: dict, names: dict[str, str] = config.API_TEAM_NAMES) -> pd.DataFrame:
+    """FINISHED matches -> rows shaped like data.load_matches(), plus kickoff_utc, source."""
+    sched = schedule(doc, names)
+    df = sched[sched.status == "FINISHED"]
+    bad = df[df.hg.isna() | df.ag.isna()]
+    if not bad.empty:
+        raise ValueError(f"FINISHED match without a full-time score: {bad.id.tolist()}")
+    df = df[["season", "date", "home", "away", "hg", "ag", "kickoff_utc"]].copy()
+    df[["hg", "ag"]] = df[["hg", "ag"]].astype(int)
     for c in ODDS_COLS:
         df[c] = np.nan
     df["open_src"] = df["close_src"] = ""
@@ -135,18 +147,19 @@ def get_api_results(refresh: bool = True, cache: Path = config.RESULTS_API_CACHE
     if refresh:
         try:
             doc = fetcher(cache=cache)
-            res = ApiResults(parse(doc), True, doc["fetched_at"])
-            extra = (f" ({doc['carried_over']} kept from the previous response)"
+            res = ApiResults(parse(doc), schedule(doc), True, doc["fetched_at"])
+            extra = (f", {doc['carried_over']} kept from the previous response"
                      if doc.get("carried_over") else "")
-            return res, f"results API: live, {len(res.rows)} finished matches{extra}"
+            return res, (f"results API: live, {len(res.schedule)} scheduled matches, "
+                         f"{len(res.rows)} finished{extra}")
         except ApiUnavailable as e:
             reason = str(e)
     doc = load_cache(cache)
     if doc is None:
         return None, f"results API unavailable ({reason}), no cache"
-    res = ApiResults(parse(doc), False, doc["fetched_at"])
+    res = ApiResults(parse(doc), schedule(doc), False, doc["fetched_at"])
     return res, (f"results API not live ({reason}); using cached response from "
-                 f"{res.fetched_at} ({len(res.rows)} matches)")
+                 f"{res.fetched_at} ({len(res.schedule)} scheduled, {len(res.rows)} finished)")
 
 
 def merge_results(csv: pd.DataFrame, api: pd.DataFrame | None) -> pd.DataFrame:

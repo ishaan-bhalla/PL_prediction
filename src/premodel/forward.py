@@ -8,9 +8,11 @@ round itself, or anything after it, can leak into the predictions.
 
 Training results are the season CSVs plus, for matches the CSV does not have yet,
 football-data.org API results (premodel.results). Before fitting, the data must be
-complete: every match the live API reports as finished before the first kickoff
-must be in the training window. Without a live API response the older calendar
-rule applies instead (newest match at most STALE_DAYS before the first kickoff).
+complete against the live API's season schedule: the schedule itself must be whole,
+and every match due to kick off before the round (bar postponed, cancelled or
+suspended ones) must be FINISHED and in the training window. Without a live API
+response the older calendar rule applies instead (newest match at most STALE_DAYS
+before the first kickoff).
 """
 import json
 import subprocess
@@ -124,25 +126,42 @@ def is_stale(train: pd.DataFrame, fixtures: pd.DataFrame,
     return gap > stale_days, msg
 
 
-def missing_finished(api_rows: pd.DataFrame, train: pd.DataFrame,
-                     first_kickoff: pd.Timestamp) -> list[str]:
-    """API-finished matches kicked off before `first_kickoff` that are not in `train`."""
-    done = api_rows[api_rows.kickoff_utc < first_kickoff]
+NOT_DUE_STATUSES = {"POSTPONED", "CANCELLED", "SUSPENDED"}
+
+
+def schedule_problems(sched: pd.DataFrame, train: pd.DataFrame,
+                      first_kickoff: pd.Timestamp) -> list[str]:
+    """Why the training data is not complete against the API schedule ([] if it is).
+
+    A response that omits matches cannot vouch for anything, so the schedule must have
+    config.SEASON_MATCHES distinct (home, away) pairings. Then every match with kickoff
+    before `first_kickoff` must be FINISHED and in `train`, unless postponed, cancelled
+    or suspended.
+    """
+    problems = []
+    n = len(set(zip(sched.home, sched.away, strict=True)))
+    if n != config.SEASON_MATCHES:
+        problems.append(f"API schedule lists {n} of {config.SEASON_MATCHES} matches "
+                        "(incomplete response)")
+    due = sched[(sched.kickoff_utc < first_kickoff) & ~sched.status.isin(NOT_DUE_STATUSES)]
     have = set(zip(train.season, train.home, train.away, strict=True))
-    return [f"{d:%Y-%m-%d} {h} v {a}"
-            for s, d, h, a in zip(done.season, done.date, done.home, done.away, strict=True)
-            if (s, h, a) not in have]
+    for r in due.itertuples(index=False):
+        label = f"{r.date:%Y-%m-%d} {r.home} v {r.away}"
+        if r.status != "FINISHED":
+            problems.append(f"{label} ({r.status})")
+        elif (r.season, r.home, r.away) not in have:
+            problems.append(f"{label} (missing from training)")
+    return problems
 
 
 def staleness(train: pd.DataFrame, fixtures: pd.DataFrame, api: ApiResults | None,
               stale_days: int = config.STALE_DAYS) -> tuple[str, bool, str]:
     """(check used, stale?, message): API completeness if live, else the calendar rule."""
     if api is not None and api.live:
-        missing = missing_finished(api.rows, train, fixtures.kickoff_utc.min())
-        msg = (f"{len(missing)} match(es) the results API reports as finished before the "
-               f"first kickoff are missing from the training data: {', '.join(missing[:5])}"
-               f"{' ...' if len(missing) > 5 else ''}")
-        return "api_completeness", bool(missing), msg
+        problems = schedule_problems(api.schedule, train, fixtures.kickoff_utc.min())
+        msg = (f"training data is incomplete against the results API schedule "
+               f"({len(problems)} problem(s)): " + "; ".join(problems))
+        return "api_completeness", bool(problems), msg
     stale, msg = is_stale(train, fixtures, stale_days)
     return "calendar", stale, f"no live results API, so using the calendar check: {msg}"
 

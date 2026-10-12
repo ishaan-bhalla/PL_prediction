@@ -9,6 +9,7 @@ FIGURES_DIR = REPORTS_DIR / "figures"
 PREDICTIONS_DIR = ROOT / "predictions"
 PENDING_DIR = PREDICTIONS_DIR / "pending"      # git-ignored until reveal
 REVEALED_DIR = PREDICTIONS_DIR / "revealed"    # committed to git after reveal
+TRACK_RECORD_PATH = PREDICTIONS_DIR / "track_record.csv"
 
 # football-data.co.uk season codes: "1415" = 2014/15
 SEASONS = [f"{y % 100:02d}{(y + 1) % 100:02d}" for y in range(2014, 2027)]
@@ -59,8 +60,11 @@ REVEAL_DEADLINE_DAYS = 10
 # Results fallback: football-data.org API v4 (football-data.co.uk's CSV lags a few days).
 # Key from env FOOTBALL_DATA_API_KEY (or .env); it is only ever sent as a request header.
 ENV_PATH = ROOT / ".env"
-RESULTS_API_URL = "https://api.football-data.org/v4/competitions/PL/matches?status=FINISHED"
-RESULTS_API_CACHE = PROCESSED_DIR / "football_data_org_pl_finished.json"
+# Whole current-season schedule (all statuses): finished rows fill CSV gaps, and the
+# schedule tells predict which matches must already be in the training data.
+RESULTS_API_URL = "https://api.football-data.org/v4/competitions/PL/matches"
+RESULTS_API_CACHE = PROCESSED_DIR / "football_data_org_pl_matches.json"
+SEASON_MATCHES = 380  # a complete schedule: 20 teams x 19 opponents x home/away
 # football-data.org team shortName -> football-data.co.uk name. Unmapped names fail loudly.
 API_TEAM_NAMES = {
     # 2026/27 clubs, checked against the live API on 2026-10-12
