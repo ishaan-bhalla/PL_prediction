@@ -119,7 +119,8 @@ def test_complete_schedule_passes_and_api_fills_the_csv_gaps(dirs):
     payload = predict(api_results(season()), dirs=dirs)
     assert payload["staleness_check"] == "api_completeness"
     assert payload["stale_override"] is False
-    assert payload["training"]["n_api_rows"] == 6  # A0-A3 results exist only in the API
+    # A0-A3 results exist only in the API
+    assert payload["models"]["dc_v1"]["training"]["n_api_rows"] == 6
 
 
 def test_flaky_response_missing_finished_matches_refuses(dirs):
@@ -127,7 +128,8 @@ def test_flaky_response_missing_finished_matches_refuses(dirs):
     with pytest.raises(forward.StaleDataError, match="lists 11 of 12 matches"):
         predict(api_results(season(drop={3})), dirs=dirs)
     payload = predict(api_results(season(drop={3})), allow_stale=True, dirs=dirs)
-    assert payload["stale_override"] is True and payload["training"]["n_api_rows"] == 5
+    assert payload["stale_override"] is True
+    assert payload["models"]["dc_v1"]["training"]["n_api_rows"] == 5
 
 
 @pytest.mark.parametrize("st", ["TIMED", "SCHEDULED", "IN_PLAY", "PAUSED", "AWARDED"])
@@ -139,7 +141,8 @@ def test_past_match_without_finished_status_refuses(dirs, st):
 @pytest.mark.parametrize("st", ["POSTPONED", "CANCELLED", "SUSPENDED"])
 def test_postponed_match_passes(dirs, st):
     payload = predict(api_results(season(status={2: st})), dirs=dirs)
-    assert payload["stale_override"] is False and payload["training"]["n_api_rows"] == 5
+    assert payload["stale_override"] is False
+    assert payload["models"]["dc_v1"]["training"]["n_api_rows"] == 5
 
 
 def test_long_break_with_no_matches_passes(dirs):

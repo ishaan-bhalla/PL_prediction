@@ -438,3 +438,27 @@ def _reveal_status(d: Path, tx: TxInfo, m: Memo, now: datetime, deadline_days: i
     except (OSError, ValueError, KeyError, TypeError):
         ok = False
     return "revealed" if ok else "mismatch"
+
+
+# --- schemas ----------------------------------------------------------------------------
+
+V1_MODEL = "dc_v1"  # schema v1 rounds hold only dc_v1 probabilities, at fixture level
+
+
+def fixture_probs(pred: dict) -> list[dict]:
+    """Per fixture: {model: (p_home, p_draw, p_away)}, for schema v1 and v2 rounds."""
+    schema = pred.get("schema", "")
+    out = []
+    for f in pred["fixtures"]:
+        if schema.endswith("/v1"):
+            out.append({V1_MODEL: (f["p_home"], f["p_draw"], f["p_away"])})
+        elif schema.endswith("/v2"):
+            out.append({name: (b["p_home"], b["p_draw"], b["p_away"])
+                        for name, b in f["probs"].items()})
+        else:
+            raise ValueError(f"unknown predictions schema {schema!r}")
+    return out
+
+
+def primary_model(pred: dict) -> str:
+    return pred.get("primary_model", V1_MODEL)

@@ -1,0 +1,21 @@
+{
+  "fetched_at": "2026-10-12T08:00:00Z",
+  "response": {
+    "filters": {"season": "2026"},
+    "resultSet": {"count": 3},
+    "matches": [
+      {"id": 101, "utcDate": "2026-10-03T14:00:00Z", "status": "FINISHED",
+       "homeTeam": {"name": "Preston North End FC", "shortName": "Preston NE"},
+       "awayTeam": {"name": "Sheffield United FC", "shortName": "Sheffield Utd"},
+       "score": {"fullTime": {"home": 1, "away": 2}}},
+      {"id": 102, "utcDate": "2026-10-04T11:30:00Z", "status": "FINISHED",
+       "homeTeam": {"name": "Wolverhampton Wanderers FC", "shortName": "Wolverhampton"},
+       "awayTeam": {"name": "Derby County FC", "shortName": "Derby County"},
+       "score": {"fullTime": {"home": 3, "away": 0}}},
+      {"id": 103, "utcDate": "2026-10-18T14:00:00Z", "status": "TIMED",
+       "homeTeam": {"name": "Lincoln City FC", "shortName": "Lincoln City"},
+       "awayTeam": {"name": "West Ham United FC", "shortName": "West Ham"},
+       "score": {"fullTime": {"home": null, "away": null}}}
+    ]
+  }
+}

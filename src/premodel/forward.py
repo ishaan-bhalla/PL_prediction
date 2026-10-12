@@ -26,9 +26,11 @@ from premodel import __version__, config
 from premodel.commitment import COMMIT_FILE, PRED_FILE, canonical_json
 from premodel.data import download, load_matches, open_odds, season_of
 from premodel.models import dixon_coles as dc
+from premodel.models import dixon_coles_joint as dj
 from premodel.results import ApiResults, get_api_results, merge_results
 
-SCHEMA = "premodel/predictions/v1"
+SCHEMA = "premodel/predictions/v2"
+SCHEMA_V1 = "premodel/predictions/v1"
 MICRO = 1_000_000  # probabilities are stored in millionths (6 decimals)
 
 
@@ -130,7 +132,8 @@ NOT_DUE_STATUSES = {"POSTPONED", "CANCELLED", "SUSPENDED"}
 
 
 def schedule_problems(sched: pd.DataFrame, train: pd.DataFrame,
-                      first_kickoff: pd.Timestamp) -> list[str]:
+                      first_kickoff: pd.Timestamp, season_matches: int | None = None
+                      ) -> list[str]:
     """Why the training data is not complete against the API schedule ([] if it is).
 
     A response that omits matches cannot vouch for anything, so the schedule must have
@@ -139,9 +142,10 @@ def schedule_problems(sched: pd.DataFrame, train: pd.DataFrame,
     or suspended.
     """
     problems = []
+    expected = season_matches or config.SEASON_MATCHES
     n = len(set(zip(sched.home, sched.away, strict=True)))
-    if n != config.SEASON_MATCHES:
-        problems.append(f"API schedule lists {n} of {config.SEASON_MATCHES} matches "
+    if n != expected:
+        problems.append(f"API schedule lists {n} of {expected} matches "
                         "(incomplete response)")
     due = sched[(sched.kickoff_utc < first_kickoff) & ~sched.status.isin(NOT_DUE_STATUSES)]
     have = set(zip(train.season, train.home, train.away, strict=True))
@@ -201,40 +205,89 @@ def round_id_for(fixtures: pd.DataFrame) -> str:
     return f"{config.LEAGUE_DIV}-{fixtures.kickoff_utc.min():%Y-%m-%d}"
 
 
-def build_payload(fixtures: pd.DataFrame, probs_micro: np.ndarray, train: pd.DataFrame,
-                  xi: float, now: pd.Timestamp, git: tuple[str, bool],
-                  stale_override: bool = False, staleness_check: str = "calendar") -> dict:
+def training_summary(train: pd.DataFrame) -> dict:
+    return {"n_matches": int(len(train)),
+            "first_match_date": f"{train.date.min():%Y-%m-%d}" if len(train) else None,
+            "last_match_date": f"{train.date.max():%Y-%m-%d}" if len(train) else None,
+            "n_api_rows": int((train.source == "api").sum()) if "source" in train else 0}
+
+
+def fit_joint_and_predict(leagues: dict[str, pd.DataFrame], fixtures: pd.DataFrame,
+                          xi: float = config.FORWARD_JOINT_XI,
+                          lookback_days: int = config.LOOKBACK_DAYS):
+    """dc_joint (plain) on every league's matches strictly before the UK date of the first
+    kickoff (same window as dc_v1); predict the E0 fixtures. Returns (probs, trains)."""
+    cutoff = training_cutoff(fixtures)
+    trains = {lg: m[(m.date < cutoff) & (m.date >= cutoff - pd.Timedelta(days=lookback_days))]
+              for lg, m in leagues.items()}
+    # same row order as the joint experiment, so the live fit reproduces it exactly
+    train = (pd.concat([t.assign(league=lg) for lg, t in trains.items()], ignore_index=True)
+             .sort_values(["date", "league", "home"], kind="stable"))
+    params = dj.fit(train.home.to_numpy(), train.away.to_numpy(), train.league.to_numpy(),
+                    train.hg.to_numpy(), train.ag.to_numpy(),
+                    (cutoff - train.date).dt.days.to_numpy(), xi)
+    p, _ = dj.predict_1x2(params, fixtures.home.to_numpy(), fixtures.away.to_numpy(),
+                          config.LEAGUE_DIV)
+    return p, trains
+
+
+def e1_completeness(e1: pd.DataFrame | None, api: ApiResults | None,
+                    fixtures: pd.DataFrame) -> dict:
+    """Information only (never blocks predict): is the Championship training data complete
+    against the live ELC schedule?"""
+    if e1 is None or api is None or not api.live:
+        return {"checked": False, "complete": None, "problems": []}
+    train = training_window(e1, fixtures)
+    problems = schedule_problems(api.schedule, train, fixtures.kickoff_utc.min(),
+                                 config.RESULTS_API["ELC"]["season_matches"])
+    return {"checked": True, "complete": not problems, "problems": problems[:10]}
+
+
+def _probs_block(pm) -> dict:
+    return {"p_home": pm[0] / MICRO, "p_draw": pm[1] / MICRO, "p_away": pm[2] / MICRO}
+
+
+def build_payload(fixtures: pd.DataFrame, probs_micro: dict, trains: dict,
+                  now: pd.Timestamp, git: tuple[str, bool], stale_override: bool = False,
+                  staleness_check: str = "calendar", data_info: dict | None = None) -> dict:
+    """Schema v2: one file holds every model's probabilities, so one commitment covers all.
+
+    probs_micro: model -> (n, 3) int array in millionths; trains: "dc_v1" -> frame,
+    "dc_joint" -> {league: frame}."""
     rows = []
-    for f, pm in zip(fixtures.itertuples(index=False), probs_micro, strict=True):
+    for k, f in enumerate(fixtures.itertuples(index=False)):
         odds = [f.open_h, f.open_d, f.open_a]
         has_odds = not any(np.isnan(odds))
         rows.append({
             "home": f.home,
             "away": f.away,
             "kickoff_utc": iso_utc(f.kickoff_utc),
-            "p_home": pm[0] / MICRO, "p_draw": pm[1] / MICRO, "p_away": pm[2] / MICRO,
+            "probs": {name: _probs_block(pm[k]) for name, pm in probs_micro.items()},
             "odds_open": dict(zip(["home", "draw", "away"], map(float, odds), strict=True))
             if has_odds else None,
             "odds_source": f.open_src if has_odds else None,
         })
+    models = {}
+    for name, spec in config.MODELS.items():
+        if name not in probs_micro:
+            continue
+        t = trains[name]
+        models[name] = {**spec, "lookback_days": config.LOOKBACK_DAYS,
+                        "training": ({lg: training_summary(x) for lg, x in t.items()}
+                                     if isinstance(t, dict) else training_summary(t))}
     return {
         "schema": SCHEMA,
         "round_id": round_id_for(fixtures),
-        "model": config.MODEL_NAME,
         "model_version": __version__,
+        "primary_model": config.PRIMARY_MODEL,
+        "models": models,
+        "live_evaluation_rule": config.LIVE_EVALUATION["rule"],
         "git_commit": git[0],
         "git_dirty": git[1],
-        "xi": float(xi),
-        "lookback_days": config.LOOKBACK_DAYS,
         "generated_at": iso_utc(now),
         "stale_override": stale_override,
         "staleness_check": staleness_check,
-        "training": {
-            "n_matches": int(len(train)),
-            "first_match_date": f"{train.date.min():%Y-%m-%d}",
-            "last_match_date": f"{train.date.max():%Y-%m-%d}",
-            "n_api_rows": int((train.source == "api").sum()) if "source" in train else 0,
-        },
+        "data": data_info or {},
         "fixtures": rows,
     }
 
@@ -244,12 +297,15 @@ def predict_round(matches: pd.DataFrame, fixtures: pd.DataFrame, now: pd.Timesta
                   revealed_dir: Path = config.REVEALED_DIR,
                   xi: float = config.FORWARD_XI, git: tuple[str, bool] | None = None,
                   allow_stale: bool = False, stale_days: int = config.STALE_DAYS,
-                  api: ApiResults | None = None) -> dict:
-    """Predictions payload for the next round (pure apart from reading committed rounds).
+                  api: ApiResults | None = None, other_leagues: dict | None = None,
+                  e1_api: ApiResults | None = None) -> dict:
+    """Schema v2 predictions for the next round (pure apart from reading committed rounds).
 
-    `matches` (CSV) are merged with `api` rows. Raises StaleDataError if the training data
-    is incomplete (see `staleness`), unless `allow_stale`, which records
-    "stale_override": true instead.
+    `matches` (E0 CSV) are merged with `api` rows; both models use this E0 data, and the
+    staleness / completeness check (E0) applies to both. dc_v1 (shadow) is fitted on E0
+    exactly as before; dc_joint (primary) also uses `other_leagues` ({"E1": ..., "E2": ...},
+    E1 already merged with its API rows). Raises StaleDataError if the E0 training data is
+    incomplete, unless `allow_stale`, which records "stale_override": true instead.
     """
     matches = merge_results(matches, api.rows if api is not None else None)
     if now.tzinfo is None:
@@ -262,9 +318,16 @@ def predict_round(matches: pd.DataFrame, fixtures: pd.DataFrame, now: pd.Timesta
     if stale and not allow_stale:
         raise StaleDataError(f"{msg}. Refresh the data, or pass --allow-stale if this is "
                              "expected.")
-    p, train = fit_and_predict(matches, fx, xi)
-    return build_payload(fx, to_micro(p), train, xi, now, git or git_info(),
-                         stale_override=stale, staleness_check=check)
+    p_v1, train_v1 = fit_and_predict(matches, fx, xi)
+    others = other_leagues or {}
+    p_joint, trains = fit_joint_and_predict({config.LEAGUE_DIV: matches, **others}, fx)
+    e2 = trains.get("E2")
+    data_info = {"E1_completeness": e1_completeness(others.get("E1"), e1_api, fx),
+                 "E2_last_match_date": f"{e2.date.max():%Y-%m-%d}"
+                 if e2 is not None and len(e2) else None}
+    return build_payload(fx, {"dc_joint": to_micro(p_joint), "dc_v1": to_micro(p_v1)},
+                         {"dc_joint": trains, "dc_v1": train_v1}, now, git or git_info(),
+                         stale_override=stale, staleness_check=check, data_info=data_info)
 
 
 def write_round(payload: dict, pending_dir: Path = config.PENDING_DIR,
@@ -279,29 +342,53 @@ def write_round(payload: dict, pending_dir: Path = config.PENDING_DIR,
     return path
 
 
+def load_other_leagues(e1_api: ApiResults | None) -> dict:
+    """E1 (CSV merged with the Championship API rows) and E2 (CSV only)."""
+    return {"E1": merge_results(load_matches(league="E1"),
+                                e1_api.rows if e1_api is not None else None),
+            "E2": load_matches(league="E2")}
+
+
 def run_predict(now: pd.Timestamp | None = None, refresh: bool = True,
                 allow_stale: bool = False) -> Path:
     now = now if now is not None else pd.Timestamp.now(tz="UTC")
     if refresh:
-        download([config.CURRENT_SEASON], overwrite=True)
+        for lg in config.JOINT_LEAGUES:
+            download([config.CURRENT_SEASON], overwrite=True, league=lg)
         download_fixtures()
     api, status = get_api_results(refresh)
     print(status)
+    e1_api, status = get_api_results(refresh, competition="ELC")
+    print(status)
     payload = predict_round(load_matches(), load_fixtures(), now, allow_stale=allow_stale,
-                            api=api)
+                            api=api, other_leagues=load_other_leagues(e1_api), e1_api=e1_api)
     path = write_round(payload)
 
-    t = payload["training"]
-    print(f"staleness check: {payload['staleness_check']}"
+    v1 = payload["models"]["dc_v1"]["training"]
+    joint = payload["models"]["dc_joint"]["training"]
+    print(f"staleness check (E0): {payload['staleness_check']}"
           + ("  (calendar fallback: results API not live)"
              if payload["staleness_check"] == "calendar" else "")
-          + f"; {t['n_api_rows']} training rows from the results API")
-    print(f"\nRound {payload['round_id']}: {len(payload['fixtures'])} fixtures  "
-          f"(trained on {t['n_matches']} matches, {t['first_match_date']} .. "
-          f"{t['last_match_date']}, xi={payload['xi']})")
+          + f"; {v1['n_api_rows']} E0 training rows from the results API")
+    print("dc_joint training: " + ", ".join(
+        f"{lg} {t['n_matches']} (to {t['last_match_date']}, {t['n_api_rows']} API)"
+        for lg, t in joint.items()))
+    e1 = payload["data"]["E1_completeness"]
+    if e1["checked"] and not e1["complete"]:
+        print("  WARNING (non-blocking): Championship training data is incomplete against "
+              "the ELC schedule: " + "; ".join(e1["problems"]))
+    elif not e1["checked"]:
+        print("  note: Championship completeness not checked (ELC API not live)")
+    print(f"  E2 (League One, CSV only) last match used: {payload['data']['E2_last_match_date']}")
+    primary = payload["primary_model"]
+    print(f"\nRound {payload['round_id']}: {len(payload['fixtures'])} fixtures; primary "
+          f"{primary} (xi={config.MODELS[primary]['xi']}), shadow dc_v1 "
+          f"(xi={config.MODELS['dc_v1']['xi']})")
     for f in payload["fixtures"]:
-        print(f"  {f['kickoff_utc']}  {f['home']:>16} v {f['away']:<16} "
-              f"H {f['p_home']:.3f}  D {f['p_draw']:.3f}  A {f['p_away']:.3f}")
+        line = "  ".join(f"{name}{'*' if name == primary else ''} "
+                         f"H {pr['p_home']:.3f} D {pr['p_draw']:.3f} A {pr['p_away']:.3f}"
+                         for name, pr in f["probs"].items())
+        print(f"  {f['kickoff_utc']}  {f['home']:>16} v {f['away']:<16} {line}")
     if payload["stale_override"]:
         print("  warning: training data is stale; recorded stale_override = true")
     if payload["git_dirty"]:

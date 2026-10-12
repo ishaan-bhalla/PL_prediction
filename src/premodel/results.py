@@ -20,6 +20,7 @@ import os
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -137,28 +138,35 @@ def load_cache(cache: Path = config.RESULTS_API_CACHE) -> dict | None:
     return json.loads(cache.read_text(encoding="utf-8")) if cache.exists() else None
 
 
-def get_api_results(refresh: bool = True, cache: Path = config.RESULTS_API_CACHE,
-                    fetcher=fetch) -> tuple[ApiResults | None, str]:
-    """(results, status message). Live if `refresh` and the request works, else the cache.
+def get_api_results(refresh: bool = True, cache: Path | None = None, fetcher=None,
+                    competition: str = "PL") -> tuple[ApiResults | None, str]:
+    """(results, status message) for a football-data.org competition (config.RESULTS_API:
+    "PL" = Premier League, the default; "ELC" = Championship). Live if `refresh` and the
+    request works, else the cache.
 
     Parsing errors (e.g. an unmapped team name) are raised, never swallowed.
     """
+    cfg = config.RESULTS_API[competition]
+    cache = cache or cfg["cache"]
+    fetcher = fetcher or partial(fetch, cfg["url"])
+    names = cfg["names"]
+    tag = f"results API ({competition})"
     reason = "--no-refresh"
     if refresh:
         try:
             doc = fetcher(cache=cache)
-            res = ApiResults(parse(doc), schedule(doc), True, doc["fetched_at"])
+            res = ApiResults(parse(doc, names), schedule(doc, names), True, doc["fetched_at"])
             extra = (f", {doc['carried_over']} kept from the previous response"
                      if doc.get("carried_over") else "")
-            return res, (f"results API: live, {len(res.schedule)} scheduled matches, "
+            return res, (f"{tag}: live, {len(res.schedule)} scheduled matches, "
                          f"{len(res.rows)} finished{extra}")
         except ApiUnavailable as e:
             reason = str(e)
     doc = load_cache(cache)
     if doc is None:
-        return None, f"results API unavailable ({reason}), no cache"
-    res = ApiResults(parse(doc), schedule(doc), False, doc["fetched_at"])
-    return res, (f"results API not live ({reason}); using cached response from "
+        return None, f"{tag} unavailable ({reason}), no cache"
+    res = ApiResults(parse(doc, names), schedule(doc, names), False, doc["fetched_at"])
+    return res, (f"{tag} not live ({reason}); using cached response from "
                  f"{res.fetched_at} ({len(res.schedule)} scheduled, {len(res.rows)} finished)")
 
 

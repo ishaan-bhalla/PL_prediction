@@ -130,8 +130,8 @@ def test_forward_fit_uses_no_matches_on_or_after_first_kickoff_date(dirs, monkey
     expected = m[(m.date < cutoff) & (m.date >= cutoff - pd.Timedelta(days=config.LOOKBACK_DAYS))]
     assert "Poison" not in seen["teams"]
     assert seen["min_days"] >= 1
-    assert seen["n"] == len(expected) == payload["training"]["n_matches"]
-    assert payload["training"]["last_match_date"] == "2026-10-16"
+    assert seen["n"] == len(expected) == payload["models"]["dc_v1"]["training"]["n_matches"]
+    assert payload["models"]["dc_v1"]["training"]["last_match_date"] == "2026-10-16"
     assert seen["xi"] == config.FORWARD_XI
 
 
@@ -157,11 +157,17 @@ def test_written_round_is_canonical_and_complete(dirs):
     assert raw == canonical_json(payload) == canonical_json(json.loads(raw))
 
     loaded = json.loads(raw)
-    assert loaded["model"] == "dixon-coles" and loaded["git_commit"] == "abc123"
+    assert loaded["schema"] == "premodel/predictions/v2" and loaded["git_commit"] == "abc123"
+    assert loaded["primary_model"] == "dc_joint" and loaded["model_version"] == "0.2.0"
+    assert set(loaded["models"]) == {"dc_joint", "dc_v1"}
+    assert loaded["models"]["dc_v1"]["xi"] == config.FORWARD_XI
+    assert loaded["models"]["dc_joint"]["xi"] == config.FORWARD_JOINT_XI
     assert loaded["generated_at"] == "2026-10-15T09:00:00Z"
     for f in loaded["fixtures"]:
-        micro = [round(f[k] * forward.MICRO) for k in ("p_home", "p_draw", "p_away")]
-        assert sum(micro) == forward.MICRO
+        for model in ("dc_joint", "dc_v1"):
+            micro = [round(f["probs"][model][k] * forward.MICRO)
+                     for k in ("p_home", "p_draw", "p_away")]
+            assert sum(micro) == forward.MICRO
         assert f["odds_open"] == {"home": 2.0, "draw": 3.4, "away": 3.9}
         assert f["odds_source"] == "market_avg"
 
@@ -195,7 +201,7 @@ def test_allow_stale_predicts_and_records_override(dirs):
     m = make_matches(end="2026-09-30")
     payload = forward.predict_round(m, FIXTURES, NOW, git=GIT, allow_stale=True, **dirs)
     assert payload["stale_override"] is True
-    assert payload["training"]["last_match_date"] == "2026-09-30"
+    assert payload["models"]["dc_v1"]["training"]["last_match_date"] == "2026-09-30"
     path = forward.write_round(payload, **dirs)
     assert json.loads(path.read_bytes())["stale_override"] is True
 

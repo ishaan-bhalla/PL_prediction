@@ -99,3 +99,54 @@ API_TEAM_NAMES = {
     "West Ham": "West Ham",
     "Wolverhampton": "Wolves",
 }
+
+# Championship results from football-data.org (code ELC). shortName -> football-data.co.uk
+# name, checked against the live API on 2026-10-12; unmapped names fail loudly.
+API_TEAM_NAMES_E1 = {
+    "Birmingham": "Birmingham", "Blackburn": "Blackburn", "Bolton": "Bolton",
+    "Bristol City": "Bristol City", "Burnley": "Burnley", "Cardiff": "Cardiff",
+    "Charlton": "Charlton", "Derby County": "Derby", "Lincoln City": "Lincoln",
+    "Middlesbrough": "Middlesbrough", "Millwall": "Millwall", "Norwich": "Norwich",
+    "Portsmouth": "Portsmouth", "Preston NE": "Preston", "QPR": "QPR",
+    "Sheffield Utd": "Sheffield United", "Southampton": "Southampton", "Stoke": "Stoke",
+    "Swansea": "Swansea", "Watford": "Watford", "West Brom": "West Brom",
+    "West Ham": "West Ham", "Wolverhampton": "Wolves", "Wrexham": "Wrexham",
+}
+# Per football-data.org competition: endpoint, cumulative cache, name map, league code and
+# matches in a complete season (used by the schedule-completeness check).
+RESULTS_API = {
+    "PL": {"url": RESULTS_API_URL, "cache": RESULTS_API_CACHE, "names": API_TEAM_NAMES,
+           "league": "E0", "season_matches": SEASON_MATCHES},
+    "ELC": {"url": "https://api.football-data.org/v4/competitions/ELC/matches",
+            "cache": PROCESSED_DIR / "football_data_org_elc_matches.json",
+            "names": API_TEAM_NAMES_E1, "league": "E1", "season_matches": 552},
+}
+
+# --- Live models (model_version 0.2.0) ---------------------------------------------------
+# Primary: dc_joint (plain variant, one rating per team across E0/E1/E2), xi as selected in
+# reports/experiments/joint/summary.json (a drift test keeps the two equal). Shadow: dc_v1,
+# unchanged. Both are committed in every round's predictions.json (schema v2).
+# Adoption was decided AFTER seeing the joint experiment's results; no adoption rule was
+# pre-registered for that experiment.
+PRIMARY_MODEL = "dc_joint"
+FORWARD_JOINT_XI = 0.005
+JOINT_LEAGUES = ["E0", "E1", "E2"]
+MODELS = {
+    "dc_joint": {"version": "0.2.0", "variant": "plain", "xi": FORWARD_JOINT_XI},
+    "dc_v1": {"version": "0.1.0", "xi": FORWARD_XI},
+}
+
+# Pre-registered live evaluation rule (written 2026-10-12, before any schema v2 match).
+LIVE_EVALUATION = {
+    "min_v2_matches": 150,
+    "season": "2026/27",
+    "season_end": "2027-05-30",  # football-data.org PL 2026/27 endDate
+    "rule": ("Evaluated once at least 150 schema-v2 matches are scored AND the last E0 "
+             "2026/27 fixture (season end 2027-05-30) is scored, whichever is later. If the "
+             "95% CI (paired date-block bootstrap) of RPS(dc_joint) - RPS(dc_v1) on live "
+             "matches lies entirely above 0, dc_joint is worse: revert the primary model to "
+             "dc_v1. Otherwise keep dc_joint. The result is reported either way."),
+    "power": ("Low by design: at about 150 matches the CI half-width is roughly +/-0.007 "
+              "RPS (against +/-0.0015 on the 3,090-match backtest), so the rule can only "
+              "detect a large deterioration and cannot confirm an improvement."),
+}
