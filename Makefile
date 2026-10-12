@@ -1,4 +1,4 @@
-.PHONY: setup data coverage backtest plots all test lint experiment-shrinkage \
+.PHONY: setup data coverage backtest plots all test lint experiment-shrinkage experiment-championship \
         wallet predict commit reveal score verify audit
 
 setup:          ## install the package, dev tools and Solana extras into the active environment
@@ -20,6 +20,9 @@ all: backtest plots
 
 experiment-shrinkage:  ## dc_shrink vs dc_v1 -> reports/experiments/shrinkage/
 	python -m premodel experiment shrinkage
+
+experiment-championship:  ## is the E1 market softer than E0? -> reports/experiments/championship/
+	python -m premodel experiment championship
 
 test:
 	pytest -q

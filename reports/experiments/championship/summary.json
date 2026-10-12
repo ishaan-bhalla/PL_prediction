@@ -1,0 +1,2114 @@
+{
+  "decision_rules": {
+    "protocol": "dc_v1 unchanged; walk-forward refit per match date, 3-year lookback; xi tuned on E1 validation (2015/16-2017/18) by RPS on the E0 grid, a grid-edge optimum reported as a limitation, grid not extended; test = 2018/19 to 2026-09-20 (the published E0 window) in both leagues; matches without the odds a comparison needs are excluded from it and counted; 95% CIs from a date-block bootstrap (5,000 resamples); 98.3% (Bonferroni, 3 primary questions) reported as robustness only.",
+    "Q1": "RPS gap = model - devigged close, per match. E1 gap smaller than E0 gap if the 95% CI of (gap E1 - gap E0), resampling match dates jointly across both leagues, lies entirely below 0. Independent per-league bootstrap: sensitivity only.",
+    "Q2": "For each match the model bets on (edge > 0 at open odds, backtest rule): CLV of the bet minus the expected CLV of a uniformly random bet on the same match. E1 market softer if the 95% CI of the mean lies entirely above 0.",
+    "Q3": "p = w*model + (1-w)*devigged open, w on a 0..1 grid (step 0.05) chosen by E1 validation RPS. Model adds information the E1 market lacks if w > 0 and the 95% CI of test RPS (blend - open) lies entirely below 0."
+  },
+  "coverage": {
+    "E0": [
+      {
+        "season": "2014/15",
+        "matches": 380,
+        "expected": 380.0,
+        "teams": 20,
+        "dates": 96,
+        "first": "2014-08-16",
+        "last": "2015-05-24",
+        "in_test_window": 0,
+        "open_pinnacle": 380,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 380,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2015/16",
+        "matches": 380,
+        "expected": 380.0,
+        "teams": 20,
+        "dates": 99,
+        "first": "2015-08-08",
+        "last": "2016-05-17",
+        "in_test_window": 0,
+        "open_pinnacle": 380,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 380,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2016/17",
+        "matches": 380,
+        "expected": 380.0,
+        "teams": 20,
+        "dates": 107,
+        "first": "2016-08-13",
+        "last": "2017-05-21",
+        "in_test_window": 0,
+        "open_pinnacle": 380,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 380,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2017/18",
+        "matches": 380,
+        "expected": 380.0,
+        "teams": 20,
+        "dates": 105,
+        "first": "2017-08-11",
+        "last": "2018-05-13",
+        "in_test_window": 0,
+        "open_pinnacle": 380,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 380,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2018/19",
+        "matches": 380,
+        "expected": 380.0,
+        "teams": 20,
+        "dates": 108,
+        "first": "2018-08-10",
+        "last": "2019-05-12",
+        "in_test_window": 380,
+        "open_pinnacle": 380,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 380,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2019/20",
+        "matches": 380,
+        "expected": 380.0,
+        "teams": 20,
+        "dates": 115,
+        "first": "2019-08-09",
+        "last": "2020-07-26",
+        "in_test_window": 380,
+        "open_pinnacle": 380,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 380,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2020/21",
+        "matches": 380,
+        "expected": 380.0,
+        "teams": 20,
+        "dates": 135,
+        "first": "2020-09-12",
+        "last": "2021-05-23",
+        "in_test_window": 380,
+        "open_pinnacle": 380,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 380,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2021/22",
+        "matches": 380,
+        "expected": 380.0,
+        "teams": 20,
+        "dates": 123,
+        "first": "2021-08-13",
+        "last": "2022-05-22",
+        "in_test_window": 380,
+        "open_pinnacle": 380,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 380,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2022/23",
+        "matches": 380,
+        "expected": 380.0,
+        "teams": 20,
+        "dates": 117,
+        "first": "2022-08-05",
+        "last": "2023-05-28",
+        "in_test_window": 380,
+        "open_pinnacle": 380,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 380,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2023/24",
+        "matches": 380,
+        "expected": 380.0,
+        "teams": 20,
+        "dates": 120,
+        "first": "2023-08-11",
+        "last": "2024-05-19",
+        "in_test_window": 380,
+        "open_pinnacle": 380,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 380,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2024/25",
+        "matches": 380,
+        "expected": 380.0,
+        "teams": 20,
+        "dates": 109,
+        "first": "2024-08-16",
+        "last": "2025-05-25",
+        "in_test_window": 380,
+        "open_pinnacle": 380,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 380,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2025/26",
+        "matches": 380,
+        "expected": 380.0,
+        "teams": 20,
+        "dates": 114,
+        "first": "2025-08-15",
+        "last": "2026-05-24",
+        "in_test_window": 380,
+        "open_pinnacle": 210,
+        "open_avg": 170,
+        "open_missing": 0,
+        "close_pinnacle": 210,
+        "close_avg": 170,
+        "close_missing": 0
+      },
+      {
+        "season": "2026/27",
+        "matches": 50,
+        "expected": null,
+        "teams": 20,
+        "dates": 17,
+        "first": "2026-08-21",
+        "last": "2026-09-20",
+        "in_test_window": 50,
+        "open_pinnacle": 0,
+        "open_avg": 50,
+        "open_missing": 0,
+        "close_pinnacle": 0,
+        "close_avg": 50,
+        "close_missing": 0
+      }
+    ],
+    "E1": [
+      {
+        "season": "2014/15",
+        "matches": 552,
+        "expected": 552.0,
+        "teams": 24,
+        "dates": 93,
+        "first": "2014-08-08",
+        "last": "2015-05-02",
+        "in_test_window": 0,
+        "open_pinnacle": 552,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 552,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2015/16",
+        "matches": 552,
+        "expected": 552.0,
+        "teams": 24,
+        "dates": 113,
+        "first": "2015-08-07",
+        "last": "2016-05-07",
+        "in_test_window": 0,
+        "open_pinnacle": 552,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 552,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2016/17",
+        "matches": 552,
+        "expected": 552.0,
+        "teams": 24,
+        "dates": 110,
+        "first": "2016-08-05",
+        "last": "2017-05-07",
+        "in_test_window": 0,
+        "open_pinnacle": 552,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 552,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2017/18",
+        "matches": 552,
+        "expected": 552.0,
+        "teams": 24,
+        "dates": 105,
+        "first": "2017-08-04",
+        "last": "2018-05-06",
+        "in_test_window": 0,
+        "open_pinnacle": 552,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 552,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2018/19",
+        "matches": 552,
+        "expected": 552.0,
+        "teams": 24,
+        "dates": 104,
+        "first": "2018-08-03",
+        "last": "2019-05-05",
+        "in_test_window": 552,
+        "open_pinnacle": 551,
+        "open_avg": 0,
+        "open_missing": 1,
+        "close_pinnacle": 552,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2019/20",
+        "matches": 552,
+        "expected": 552.0,
+        "teams": 24,
+        "dates": 116,
+        "first": "2019-08-02",
+        "last": "2020-07-22",
+        "in_test_window": 552,
+        "open_pinnacle": 551,
+        "open_avg": 1,
+        "open_missing": 0,
+        "close_pinnacle": 552,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2020/21",
+        "matches": 552,
+        "expected": 552.0,
+        "teams": 24,
+        "dates": 110,
+        "first": "2020-09-11",
+        "last": "2021-05-08",
+        "in_test_window": 552,
+        "open_pinnacle": 551,
+        "open_avg": 1,
+        "open_missing": 0,
+        "close_pinnacle": 550,
+        "close_avg": 2,
+        "close_missing": 0
+      },
+      {
+        "season": "2021/22",
+        "matches": 552,
+        "expected": 552.0,
+        "teams": 24,
+        "dates": 116,
+        "first": "2021-08-06",
+        "last": "2022-05-07",
+        "in_test_window": 552,
+        "open_pinnacle": 552,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 552,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2022/23",
+        "matches": 552,
+        "expected": 552.0,
+        "teams": 24,
+        "dates": 118,
+        "first": "2022-07-29",
+        "last": "2023-05-08",
+        "in_test_window": 552,
+        "open_pinnacle": 552,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 552,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2023/24",
+        "matches": 552,
+        "expected": 552.0,
+        "teams": 24,
+        "dates": 112,
+        "first": "2023-08-04",
+        "last": "2024-05-04",
+        "in_test_window": 552,
+        "open_pinnacle": 552,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 552,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2024/25",
+        "matches": 552,
+        "expected": 552.0,
+        "teams": 24,
+        "dates": 126,
+        "first": "2024-08-09",
+        "last": "2025-05-03",
+        "in_test_window": 552,
+        "open_pinnacle": 552,
+        "open_avg": 0,
+        "open_missing": 0,
+        "close_pinnacle": 552,
+        "close_avg": 0,
+        "close_missing": 0
+      },
+      {
+        "season": "2025/26",
+        "matches": 552,
+        "expected": 552.0,
+        "teams": 24,
+        "dates": 116,
+        "first": "2025-08-08",
+        "last": "2026-05-02",
+        "in_test_window": 552,
+        "open_pinnacle": 260,
+        "open_avg": 292,
+        "open_missing": 0,
+        "close_pinnacle": 271,
+        "close_avg": 281,
+        "close_missing": 0
+      },
+      {
+        "season": "2026/27",
+        "matches": 95,
+        "expected": null,
+        "teams": 24,
+        "dates": 21,
+        "first": "2026-08-14",
+        "last": "2026-09-20",
+        "in_test_window": 95,
+        "open_pinnacle": 0,
+        "open_avg": 95,
+        "open_missing": 0,
+        "close_pinnacle": 0,
+        "close_avg": 95,
+        "close_missing": 0
+      }
+    ]
+  },
+  "xi": {
+    "E0": 0.003,
+    "E1": 0.005,
+    "E1_tuning": [
+      {
+        "xi": 0.0,
+        "half_life_days": null,
+        "log_loss": 1.0731627565329291,
+        "brier": 0.6438213155598407,
+        "rps": 0.22165867973435674
+      },
+      {
+        "xi": 0.001,
+        "half_life_days": 693.1471805599452,
+        "log_loss": 1.068413330701504,
+        "brier": 0.6403878666840165,
+        "rps": 0.2200381267413306
+      },
+      {
+        "xi": 0.0019,
+        "half_life_days": 364.81430555786596,
+        "log_loss": 1.0654567417902165,
+        "brier": 0.638197771004763,
+        "rps": 0.21901722136919963
+      },
+      {
+        "xi": 0.003,
+        "half_life_days": 231.04906018664843,
+        "log_loss": 1.0636444729841865,
+        "brier": 0.6366893544258618,
+        "rps": 0.21833137201426298
+      },
+      {
+        "xi": 0.005,
+        "half_life_days": 138.62943611198907,
+        "log_loss": 1.064150362429929,
+        "brier": 0.6365006017402385,
+        "rps": 0.21828766185183762
+      }
+    ],
+    "E1_at_grid_edge": true
+  },
+  "test_window": {
+    "seasons": [
+      "2018/19",
+      "2019/20",
+      "2020/21",
+      "2021/22",
+      "2022/23",
+      "2023/24",
+      "2024/25",
+      "2025/26",
+      "2026/27"
+    ],
+    "end": "2026-09-20",
+    "n": {
+      "E0": 3090,
+      "E1": 4511
+    },
+    "extended_e1_matches_after_end": 0
+  },
+  "e0_published_check": {
+    "dc_v1": {
+      "log_loss": 0.9803523858474081,
+      "brier": 0.5791881072632875,
+      "rps": 0.20156170227500353
+    },
+    "published": {
+      "log_loss": 0.9803523858474081,
+      "brier": 0.5791881072632875,
+      "rps": 0.20156170227500353
+    }
+  },
+  "primary": {
+    "Q1": {
+      "gap_E0": {
+        "mean": 0.006065616882668377,
+        "ci95": [
+          0.003844153517514224,
+          0.00842501448625165
+        ],
+        "ci983": [
+          0.003341673598790305,
+          0.009044478393685133
+        ],
+        "n_matches": 3090,
+        "n_dates": 958
+      },
+      "gap_E1": {
+        "mean": 0.008472176721000917,
+        "ci95": [
+          0.006475865162576394,
+          0.010532999308462203
+        ],
+        "ci983": [
+          0.00599610734164171,
+          0.011054686057927244
+        ],
+        "n_matches": 4511,
+        "n_dates": 939
+      },
+      "difference_E1_minus_E0_joint": {
+        "mean": 0.0024065598383325396,
+        "ci95": [
+          -0.0005008057051283431,
+          0.005371792173622559
+        ],
+        "ci983": [
+          -0.0010785448347770924,
+          0.006021087492755669
+        ],
+        "n_dates": 1394
+      },
+      "difference_E1_minus_E0_independent_sensitivity": {
+        "mean": 0.0024065598383325396,
+        "ci95": [
+          -0.0006796436027645952,
+          0.005557383545916886
+        ],
+        "ci983": [
+          -0.0012641722159999523,
+          0.00609902081786108
+        ]
+      }
+    },
+    "Q2": {
+      "E1": {
+        "mean": -0.004540993475421382,
+        "ci95": [
+          -0.006810123337800117,
+          -0.002317715461266672
+        ],
+        "ci983": [
+          -0.007240045867300444,
+          -0.001784433116865645
+        ],
+        "n_matches": 4204,
+        "n_dates": 916
+      },
+      "E0": {
+        "mean": -0.0017649584181058402,
+        "ci95": [
+          -0.004527818018430967,
+          0.0009953429318304463
+        ],
+        "ci983": [
+          -0.005045588864084318,
+          0.0016293605304090206
+        ],
+        "n_matches": 2880,
+        "n_dates": 933
+      }
+    },
+    "Q3": {
+      "E1": {
+        "w": 0.0,
+        "validation_curve": [
+          {
+            "w": 0.0,
+            "rps": 0.209998397866108
+          },
+          {
+            "w": 0.05,
+            "rps": 0.21008404298004843
+          },
+          {
+            "w": 0.1,
+            "rps": 0.21020430052402533
+          },
+          {
+            "w": 0.15,
+            "rps": 0.2103591704980386
+          },
+          {
+            "w": 0.2,
+            "rps": 0.21054865290208832
+          },
+          {
+            "w": 0.25,
+            "rps": 0.2107727477361745
+          },
+          {
+            "w": 0.3,
+            "rps": 0.21103145500029705
+          },
+          {
+            "w": 0.35,
+            "rps": 0.21132477469445607
+          },
+          {
+            "w": 0.4,
+            "rps": 0.2116527068186515
+          },
+          {
+            "w": 0.45,
+            "rps": 0.21201525137288332
+          },
+          {
+            "w": 0.5,
+            "rps": 0.2124124083571516
+          },
+          {
+            "w": 0.55,
+            "rps": 0.21284417777145628
+          },
+          {
+            "w": 0.6,
+            "rps": 0.21331055961579742
+          },
+          {
+            "w": 0.65,
+            "rps": 0.21381155389017495
+          },
+          {
+            "w": 0.7,
+            "rps": 0.21434716059458891
+          },
+          {
+            "w": 0.75,
+            "rps": 0.2149173797290393
+          },
+          {
+            "w": 0.8,
+            "rps": 0.21552221129352614
+          },
+          {
+            "w": 0.85,
+            "rps": 0.21616165528804934
+          },
+          {
+            "w": 0.9,
+            "rps": 0.21683571171260901
+          },
+          {
+            "w": 0.95,
+            "rps": 0.21754438056720513
+          },
+          {
+            "w": 1.0,
+            "rps": 0.21828766185183762
+          }
+        ],
+        "n_test": 4510,
+        "rps_blend": 0.2146546509002378,
+        "rps_open": 0.2146546509002378,
+        "rps_diff_blend_minus_open": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci983": [
+            0.0,
+            0.0
+          ],
+          "n_matches": 4510,
+          "n_dates": 939
+        }
+      },
+      "E0": {
+        "w": 0.0,
+        "validation_curve": [
+          {
+            "w": 0.0,
+            "rps": 0.19205722433197137
+          },
+          {
+            "w": 0.05,
+            "rps": 0.19212766584932656
+          },
+          {
+            "w": 0.1,
+            "rps": 0.19222962011886835
+          },
+          {
+            "w": 0.15,
+            "rps": 0.19236308714059672
+          },
+          {
+            "w": 0.2,
+            "rps": 0.19252806691451171
+          },
+          {
+            "w": 0.25,
+            "rps": 0.1927245594406133
+          },
+          {
+            "w": 0.3,
+            "rps": 0.19295256471890151
+          },
+          {
+            "w": 0.35,
+            "rps": 0.1932120827493763
+          },
+          {
+            "w": 0.4,
+            "rps": 0.19350311353203772
+          },
+          {
+            "w": 0.45,
+            "rps": 0.19382565706688573
+          },
+          {
+            "w": 0.5,
+            "rps": 0.1941797133539203
+          },
+          {
+            "w": 0.55,
+            "rps": 0.19456528239314153
+          },
+          {
+            "w": 0.6,
+            "rps": 0.19498236418454934
+          },
+          {
+            "w": 0.65,
+            "rps": 0.19543095872814378
+          },
+          {
+            "w": 0.7,
+            "rps": 0.19591106602392477
+          },
+          {
+            "w": 0.75,
+            "rps": 0.19642268607189242
+          },
+          {
+            "w": 0.8,
+            "rps": 0.19696581887204664
+          },
+          {
+            "w": 0.85,
+            "rps": 0.1975404644243875
+          },
+          {
+            "w": 0.9,
+            "rps": 0.1981466227289149
+          },
+          {
+            "w": 0.95,
+            "rps": 0.19878429378562892
+          },
+          {
+            "w": 1.0,
+            "rps": 0.19945347759452955
+          }
+        ],
+        "n_test": 3090,
+        "rps_blend": 0.1966635301070105,
+        "rps_open": 0.1966635301070105,
+        "rps_diff_blend_minus_open": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci983": [
+            0.0,
+            0.0
+          ],
+          "n_matches": 3090,
+          "n_dates": 958
+        }
+      }
+    }
+  },
+  "decisions_95": {
+    "Q1_e1_gap_smaller": false,
+    "Q2_e1_market_softer": false,
+    "Q3_model_adds_information_in_e1": false
+  },
+  "decisions_983_robustness": {
+    "Q1_e1_gap_smaller": false,
+    "Q2_e1_market_softer": false,
+    "Q3_model_adds_information_in_e1": false
+  },
+  "leagues": {
+    "E0": {
+      "n_test": 3090,
+      "n_with_close": 3090,
+      "n_with_open": 3090,
+      "q1_rps_gap_model_minus_close": {
+        "mean": 0.006065616882668377,
+        "ci95": [
+          0.003844153517514224,
+          0.00842501448625165
+        ],
+        "ci983": [
+          0.003341673598790305,
+          0.009044478393685133
+        ],
+        "n_matches": 3090,
+        "n_dates": 958
+      },
+      "q2_clv_model_minus_random_same_match": {
+        "mean": -0.0017649584181058402,
+        "ci95": [
+          -0.004527818018430967,
+          0.0009953429318304463
+        ],
+        "ci983": [
+          -0.005045588864084318,
+          0.0016293605304090206
+        ],
+        "n_matches": 2880,
+        "n_dates": 933
+      },
+      "q2_context": {
+        "n_bets": 2880,
+        "n_matches_with_odds": 3090,
+        "mean_clv_model_bets": -0.030030879061210332,
+        "mean_random_clv_same_matches": -0.028265920643104497,
+        "mean_random_clv_all_matches": -0.028788457704066482,
+        "backtest_random_bet_baseline": {
+          "roi": -0.06403559870550161,
+          "mean_clv": -0.02891441969610559
+        }
+      },
+      "q3_blend": {
+        "w": 0.0,
+        "validation_curve": [
+          {
+            "w": 0.0,
+            "rps": 0.19205722433197137
+          },
+          {
+            "w": 0.05,
+            "rps": 0.19212766584932656
+          },
+          {
+            "w": 0.1,
+            "rps": 0.19222962011886835
+          },
+          {
+            "w": 0.15,
+            "rps": 0.19236308714059672
+          },
+          {
+            "w": 0.2,
+            "rps": 0.19252806691451171
+          },
+          {
+            "w": 0.25,
+            "rps": 0.1927245594406133
+          },
+          {
+            "w": 0.3,
+            "rps": 0.19295256471890151
+          },
+          {
+            "w": 0.35,
+            "rps": 0.1932120827493763
+          },
+          {
+            "w": 0.4,
+            "rps": 0.19350311353203772
+          },
+          {
+            "w": 0.45,
+            "rps": 0.19382565706688573
+          },
+          {
+            "w": 0.5,
+            "rps": 0.1941797133539203
+          },
+          {
+            "w": 0.55,
+            "rps": 0.19456528239314153
+          },
+          {
+            "w": 0.6,
+            "rps": 0.19498236418454934
+          },
+          {
+            "w": 0.65,
+            "rps": 0.19543095872814378
+          },
+          {
+            "w": 0.7,
+            "rps": 0.19591106602392477
+          },
+          {
+            "w": 0.75,
+            "rps": 0.19642268607189242
+          },
+          {
+            "w": 0.8,
+            "rps": 0.19696581887204664
+          },
+          {
+            "w": 0.85,
+            "rps": 0.1975404644243875
+          },
+          {
+            "w": 0.9,
+            "rps": 0.1981466227289149
+          },
+          {
+            "w": 0.95,
+            "rps": 0.19878429378562892
+          },
+          {
+            "w": 1.0,
+            "rps": 0.19945347759452955
+          }
+        ],
+        "n_test": 3090,
+        "rps_blend": 0.1966635301070105,
+        "rps_open": 0.1966635301070105,
+        "rps_diff_blend_minus_open": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci983": [
+            0.0,
+            0.0
+          ],
+          "n_matches": 3090,
+          "n_dates": 958
+        }
+      },
+      "scores_all_matches": {
+        "n": 3090,
+        "model": {
+          "log_loss": 0.9803523858474081,
+          "brier": 0.5791881072632875,
+          "rps": 0.20156170227500353
+        },
+        "open": {
+          "log_loss": 0.959983884322692,
+          "brier": 0.5690246358962023,
+          "rps": 0.1966635301070105
+        },
+        "close": {
+          "log_loss": 0.9564436180029389,
+          "brier": 0.5665126408233403,
+          "rps": 0.19549608539233518
+        }
+      },
+      "scores_matches_with_both_odds": {
+        "n": 3090,
+        "model": {
+          "log_loss": 0.9803523858474081,
+          "brier": 0.5791881072632875,
+          "rps": 0.20156170227500353
+        },
+        "open": {
+          "log_loss": 0.959983884322692,
+          "brier": 0.5690246358962023,
+          "rps": 0.1966635301070105
+        },
+        "close": {
+          "log_loss": 0.9564436180029389,
+          "brier": 0.5665126408233403,
+          "rps": 0.19549608539233518
+        }
+      },
+      "per_season_gap": [
+        {
+          "season": "2018/19",
+          "n": 380,
+          "rps_model": 0.18633794944422377,
+          "rps_close": 0.18492168814776086,
+          "gap": {
+            "mean": 0.0014162612964629512,
+            "ci95": [
+              -0.0034763008943005866,
+              0.006604340065447641
+            ],
+            "ci983": [
+              -0.004641769915396,
+              0.007882124642539304
+            ],
+            "n_matches": 380,
+            "n_dates": 108
+          }
+        },
+        {
+          "season": "2019/20",
+          "n": 380,
+          "rps_model": 0.2015696078351611,
+          "rps_close": 0.19836095706284673,
+          "gap": {
+            "mean": 0.0032086507723143552,
+            "ci95": [
+              -0.002736806736740649,
+              0.009043951946078356
+            ],
+            "ci983": [
+              -0.003985730096132677,
+              0.01031301761978462
+            ],
+            "n_matches": 380,
+            "n_dates": 115
+          }
+        },
+        {
+          "season": "2020/21",
+          "n": 380,
+          "rps_model": 0.21615148068738443,
+          "rps_close": 0.2110648218874734,
+          "gap": {
+            "mean": 0.005086658799911065,
+            "ci95": [
+              -0.001730503368260338,
+              0.011797218271542807
+            ],
+            "ci983": [
+              -0.003266130530333303,
+              0.013022357028123238
+            ],
+            "n_matches": 380,
+            "n_dates": 135
+          }
+        },
+        {
+          "season": "2021/22",
+          "n": 380,
+          "rps_model": 0.19786461682922757,
+          "rps_close": 0.18903709822254822,
+          "gap": {
+            "mean": 0.008827518606679385,
+            "ci95": [
+              0.0013972714954559257,
+              0.016810627611665466
+            ],
+            "ci983": [
+              -0.0001978949343881155,
+              0.018563506359164934
+            ],
+            "n_matches": 380,
+            "n_dates": 123
+          }
+        },
+        {
+          "season": "2022/23",
+          "n": 380,
+          "rps_model": 0.20940665269644196,
+          "rps_close": 0.19750256082057394,
+          "gap": {
+            "mean": 0.01190409187586802,
+            "ci95": [
+              0.005684774629120021,
+              0.018266455278313706
+            ],
+            "ci983": [
+              0.00445214869887023,
+              0.019687815198961293
+            ],
+            "n_matches": 380,
+            "n_dates": 117
+          }
+        },
+        {
+          "season": "2023/24",
+          "n": 380,
+          "rps_model": 0.18907709734425526,
+          "rps_close": 0.1804559536055536,
+          "gap": {
+            "mean": 0.008621143738701629,
+            "ci95": [
+              0.0027544952115360994,
+              0.014841711741803728
+            ],
+            "ci983": [
+              0.0014007291880568406,
+              0.016417226037430163
+            ],
+            "n_matches": 380,
+            "n_dates": 120
+          }
+        },
+        {
+          "season": "2024/25",
+          "n": 380,
+          "rps_model": 0.20018062460786962,
+          "rps_close": 0.19608492697317967,
+          "gap": {
+            "mean": 0.004095697634689938,
+            "ci95": [
+              -0.0016756205562359653,
+              0.009896306152727512
+            ],
+            "ci983": [
+              -0.0029987265696921404,
+              0.01104470456458319
+            ],
+            "n_matches": 380,
+            "n_dates": 109
+          }
+        },
+        {
+          "season": "2025/26",
+          "n": 380,
+          "rps_model": 0.21046383709538474,
+          "rps_close": 0.20514369762762233,
+          "gap": {
+            "mean": 0.005320139467762405,
+            "ci95": [
+              -0.0017392680123362344,
+              0.012759440118083812
+            ],
+            "ci983": [
+              -0.0030933650949752046,
+              0.014435649307159019
+            ],
+            "n_matches": 380,
+            "n_dates": 114
+          }
+        },
+        {
+          "season": "2026/27",
+          "n": 50,
+          "rps_model": 0.21251901489161124,
+          "rps_close": 0.2061131242048676,
+          "gap": {
+            "mean": 0.006405890686743649,
+            "ci95": [
+              -0.034106804453008885,
+              0.03730609267245513
+            ],
+            "ci983": [
+              -0.04475588894864006,
+              0.04226520700152714
+            ],
+            "n_matches": 50,
+            "n_dates": 17
+          }
+        }
+      ],
+      "roi_threshold_0": {
+        "mean": -0.036923611111111115,
+        "ci95": [
+          -0.10164559327290708,
+          0.031067583310553332
+        ],
+        "ci983": [
+          -0.11445219502639088,
+          0.04434736429692853
+        ],
+        "n_matches": 2880,
+        "n_dates": 933
+      },
+      "betting": [
+        {
+          "threshold": 0.0,
+          "n_bets": 2880,
+          "roi": -0.036923611111111115,
+          "roi_ci95": [
+            -0.09975208333333332,
+            0.02859505208333327
+          ],
+          "mean_clv": -0.030030879061210332,
+          "share_positive_clv": 0.30972222222222223,
+          "bets_by_outcome": {
+            "H": 1084,
+            "D": 373,
+            "A": 1423
+          }
+        },
+        {
+          "threshold": 0.03,
+          "n_bets": 2533,
+          "roi": -0.036711409395973164,
+          "roi_ci95": [
+            -0.10392844453217528,
+            0.032962100276352116
+          ],
+          "mean_clv": -0.028973019632175606,
+          "share_positive_clv": 0.3197789182787209,
+          "bets_by_outcome": {
+            "H": 931,
+            "D": 305,
+            "A": 1297
+          }
+        },
+        {
+          "threshold": 0.05,
+          "n_bets": 2276,
+          "roi": -0.0372891036906854,
+          "roi_ci95": [
+            -0.10841113796133568,
+            0.03965103251318098
+          ],
+          "mean_clv": -0.02861647618371159,
+          "share_positive_clv": 0.3260105448154657,
+          "bets_by_outcome": {
+            "H": 820,
+            "D": 258,
+            "A": 1198
+          }
+        },
+        {
+          "threshold": 0.1,
+          "n_bets": 1757,
+          "roi": -0.047347751849743894,
+          "roi_ci95": [
+            -0.1350091064314172,
+            0.042672453044962866
+          ],
+          "mean_clv": -0.02844224012107456,
+          "share_positive_clv": 0.3357996585088219,
+          "bets_by_outcome": {
+            "H": 616,
+            "D": 173,
+            "A": 968
+          }
+        }
+      ],
+      "overround": {
+        "open": {
+          "all": 0.03151969027133567,
+          "n": 3090,
+          "pinnacle": 0.029229466065173897,
+          "market_avg": 0.06139670605171886
+        },
+        "close": {
+          "all": 0.028896891908342853,
+          "n": 3090,
+          "pinnacle": 0.02655830889761666,
+          "market_avg": 0.05940477027554373
+        }
+      },
+      "calibration": {
+        "model": {
+          "home": [
+            {
+              "pred": 0.06265257067653372,
+              "actual": 0.09900990099009901,
+              "n": 101
+            },
+            {
+              "pred": 0.15665806405135205,
+              "actual": 0.19242902208201892,
+              "n": 317
+            },
+            {
+              "pred": 0.2532598665613489,
+              "actual": 0.26865671641791045,
+              "n": 469
+            },
+            {
+              "pred": 0.3511625297624203,
+              "actual": 0.38644688644688646,
+              "n": 546
+            },
+            {
+              "pred": 0.44928048485591204,
+              "actual": 0.4148936170212766,
+              "n": 564
+            },
+            {
+              "pred": 0.5472264325132074,
+              "actual": 0.5362318840579711,
+              "n": 414
+            },
+            {
+              "pred": 0.6498159946811995,
+              "actual": 0.6561604584527221,
+              "n": 349
+            },
+            {
+              "pred": 0.7476833085847349,
+              "actual": 0.7313432835820896,
+              "n": 201
+            },
+            {
+              "pred": 0.8430517560103307,
+              "actual": 0.8686868686868687,
+              "n": 99
+            },
+            {
+              "pred": 0.9306787434155525,
+              "actual": 0.9333333333333333,
+              "n": 30
+            }
+          ],
+          "draw": [
+            {
+              "pred": 0.0701871309005924,
+              "actual": 0.07692307692307693,
+              "n": 65
+            },
+            {
+              "pred": 0.16435212424016776,
+              "actual": 0.1611842105263158,
+              "n": 608
+            },
+            {
+              "pred": 0.24900633464038383,
+              "actual": 0.25275735294117646,
+              "n": 2176
+            },
+            {
+              "pred": 0.3239645433209347,
+              "actual": 0.2594142259414226,
+              "n": 239
+            }
+          ],
+          "away": [
+            {
+              "pred": 0.06172531139853926,
+              "actual": 0.11071428571428571,
+              "n": 280
+            },
+            {
+              "pred": 0.1507769772139458,
+              "actual": 0.13345521023765997,
+              "n": 547
+            },
+            {
+              "pred": 0.2507092149876817,
+              "actual": 0.25948406676783003,
+              "n": 659
+            },
+            {
+              "pred": 0.34721269037804936,
+              "actual": 0.34554973821989526,
+              "n": 573
+            },
+            {
+              "pred": 0.4450340116523954,
+              "actual": 0.434052757793765,
+              "n": 417
+            },
+            {
+              "pred": 0.5459800900818582,
+              "actual": 0.5339506172839507,
+              "n": 324
+            },
+            {
+              "pred": 0.6472433073726294,
+              "actual": 0.6073619631901841,
+              "n": 163
+            },
+            {
+              "pred": 0.7450054738026372,
+              "actual": 0.7555555555555555,
+              "n": 90
+            },
+            {
+              "pred": 0.8396405025433307,
+              "actual": 0.7272727272727273,
+              "n": 33
+            }
+          ]
+        },
+        "close_home": [
+          {
+            "pred": 0.07715725839154747,
+            "actual": 0.02631578947368421,
+            "n": 76
+          },
+          {
+            "pred": 0.15551210083490746,
+            "actual": 0.14939024390243902,
+            "n": 328
+          },
+          {
+            "pred": 0.25416131708034356,
+            "actual": 0.2684563758389262,
+            "n": 447
+          },
+          {
+            "pred": 0.34943213472054874,
+            "actual": 0.3489208633093525,
+            "n": 556
+          },
+          {
+            "pred": 0.4474977205473214,
+            "actual": 0.42124542124542125,
+            "n": 546
+          },
+          {
+            "pred": 0.5507264441014847,
+            "actual": 0.5801354401805869,
+            "n": 443
+          },
+          {
+            "pred": 0.6474393429989085,
+            "actual": 0.6540880503144654,
+            "n": 318
+          },
+          {
+            "pred": 0.7453957605352304,
+            "actual": 0.7154471544715447,
+            "n": 246
+          },
+          {
+            "pred": 0.8413271675010441,
+            "actual": 0.9,
+            "n": 120
+          }
+        ]
+      },
+      "entrant_subgroups": {
+        "from_below": {
+          "n": 240,
+          "rps_model": 0.19243680359578572,
+          "rps_close": 0.18060977085087346,
+          "gap": {
+            "mean": 0.011827032744912248,
+            "ci95": [
+              -0.003998645952529594,
+              0.028136327679800396
+            ],
+            "ci983": [
+              -0.007592974945548683,
+              0.03115131880935851
+            ],
+            "n_matches": 240,
+            "n_dates": 141
+          }
+        },
+        "all_other_matches": {
+          "n": 2850,
+          "rps_model": 0.20233011479535873,
+          "rps_close": 0.1967496697747741,
+          "gap": {
+            "mean": 0.005580445020584683,
+            "ci95": [
+              0.0035278110160873793,
+              0.007687812880300759
+            ],
+            "ci983": [
+              0.003096616383844598,
+              0.008157493731245262
+            ],
+            "n_matches": 2850,
+            "n_dates": 933
+          }
+        }
+      }
+    },
+    "E1": {
+      "n_test": 4511,
+      "n_with_close": 4511,
+      "n_with_open": 4510,
+      "q1_rps_gap_model_minus_close": {
+        "mean": 0.008472176721000917,
+        "ci95": [
+          0.006475865162576394,
+          0.010532999308462203
+        ],
+        "ci983": [
+          0.00599610734164171,
+          0.011054686057927244
+        ],
+        "n_matches": 4511,
+        "n_dates": 939
+      },
+      "q2_clv_model_minus_random_same_match": {
+        "mean": -0.004540993475421382,
+        "ci95": [
+          -0.006810123337800117,
+          -0.002317715461266672
+        ],
+        "ci983": [
+          -0.007240045867300444,
+          -0.001784433116865645
+        ],
+        "n_matches": 4204,
+        "n_dates": 916
+      },
+      "q2_context": {
+        "n_bets": 4204,
+        "n_matches_with_odds": 4510,
+        "mean_clv_model_bets": -0.03854587195604114,
+        "mean_random_clv_same_matches": -0.03400487848061976,
+        "mean_random_clv_all_matches": -0.03481535987189906,
+        "backtest_random_bet_baseline": {
+          "roi": -0.045425720620842575,
+          "mean_clv": -0.03551856790338846
+        }
+      },
+      "q3_blend": {
+        "w": 0.0,
+        "validation_curve": [
+          {
+            "w": 0.0,
+            "rps": 0.209998397866108
+          },
+          {
+            "w": 0.05,
+            "rps": 0.21008404298004843
+          },
+          {
+            "w": 0.1,
+            "rps": 0.21020430052402533
+          },
+          {
+            "w": 0.15,
+            "rps": 0.2103591704980386
+          },
+          {
+            "w": 0.2,
+            "rps": 0.21054865290208832
+          },
+          {
+            "w": 0.25,
+            "rps": 0.2107727477361745
+          },
+          {
+            "w": 0.3,
+            "rps": 0.21103145500029705
+          },
+          {
+            "w": 0.35,
+            "rps": 0.21132477469445607
+          },
+          {
+            "w": 0.4,
+            "rps": 0.2116527068186515
+          },
+          {
+            "w": 0.45,
+            "rps": 0.21201525137288332
+          },
+          {
+            "w": 0.5,
+            "rps": 0.2124124083571516
+          },
+          {
+            "w": 0.55,
+            "rps": 0.21284417777145628
+          },
+          {
+            "w": 0.6,
+            "rps": 0.21331055961579742
+          },
+          {
+            "w": 0.65,
+            "rps": 0.21381155389017495
+          },
+          {
+            "w": 0.7,
+            "rps": 0.21434716059458891
+          },
+          {
+            "w": 0.75,
+            "rps": 0.2149173797290393
+          },
+          {
+            "w": 0.8,
+            "rps": 0.21552221129352614
+          },
+          {
+            "w": 0.85,
+            "rps": 0.21616165528804934
+          },
+          {
+            "w": 0.9,
+            "rps": 0.21683571171260901
+          },
+          {
+            "w": 0.95,
+            "rps": 0.21754438056720513
+          },
+          {
+            "w": 1.0,
+            "rps": 0.21828766185183762
+          }
+        ],
+        "n_test": 4510,
+        "rps_blend": 0.2146546509002378,
+        "rps_open": 0.2146546509002378,
+        "rps_diff_blend_minus_open": {
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci983": [
+            0.0,
+            0.0
+          ],
+          "n_matches": 4510,
+          "n_dates": 939
+        }
+      },
+      "scores_all_matches": {
+        "n": 4511,
+        "model": {
+          "log_loss": 1.0663613393363371,
+          "brier": 0.6410942934151385,
+          "rps": 0.22259745710896525
+        },
+        "close": {
+          "log_loss": 1.0355434251931166,
+          "brier": 0.6225587608470258,
+          "rps": 0.21412528038796436
+        }
+      },
+      "scores_matches_with_both_odds": {
+        "n": 4510,
+        "model": {
+          "log_loss": 1.0665208522351872,
+          "brier": 0.6412064023254986,
+          "rps": 0.222636401243898
+        },
+        "open": {
+          "log_loss": 1.0371444415640014,
+          "brier": 0.6237471845713054,
+          "rps": 0.2146546509002378
+        },
+        "close": {
+          "log_loss": 1.0357013584514363,
+          "brier": 0.6226705719284948,
+          "rps": 0.21416331483346795
+        }
+      },
+      "per_season_gap": [
+        {
+          "season": "2018/19",
+          "n": 552,
+          "rps_model": 0.21157946242994743,
+          "rps_close": 0.20403885809515676,
+          "gap": {
+            "mean": 0.007540604334790678,
+            "ci95": [
+              0.0019728793019427675,
+              0.013196825666711078
+            ],
+            "ci983": [
+              0.0008765243369149371,
+              0.014635157926009468
+            ],
+            "n_matches": 552,
+            "n_dates": 104
+          }
+        },
+        {
+          "season": "2019/20",
+          "n": 552,
+          "rps_model": 0.2252028732316245,
+          "rps_close": 0.21768687290353822,
+          "gap": {
+            "mean": 0.007516000328086235,
+            "ci95": [
+              0.0019170621500605104,
+              0.012951240255255951
+            ],
+            "ci983": [
+              0.0005958745668309798,
+              0.01416446833266242
+            ],
+            "n_matches": 552,
+            "n_dates": 116
+          }
+        },
+        {
+          "season": "2020/21",
+          "n": 552,
+          "rps_model": 0.22704491482824257,
+          "rps_close": 0.21838077931441452,
+          "gap": {
+            "mean": 0.008664135513828062,
+            "ci95": [
+              0.003733024577938671,
+              0.014019692230839582
+            ],
+            "ci983": [
+              0.0025482574031358064,
+              0.01529072354328056
+            ],
+            "n_matches": 552,
+            "n_dates": 110
+          }
+        },
+        {
+          "season": "2021/22",
+          "n": 552,
+          "rps_model": 0.22498035055943622,
+          "rps_close": 0.2167801089020461,
+          "gap": {
+            "mean": 0.008200241657390103,
+            "ci95": [
+              0.0016887980214774874,
+              0.014850631654462482
+            ],
+            "ci983": [
+              9.633258288278743e-05,
+              0.01652087141489492
+            ],
+            "n_matches": 552,
+            "n_dates": 116
+          }
+        },
+        {
+          "season": "2022/23",
+          "n": 552,
+          "rps_model": 0.22481687880044654,
+          "rps_close": 0.22051856224667926,
+          "gap": {
+            "mean": 0.004298316553767273,
+            "ci95": [
+              -0.0012838431620276142,
+              0.010152197366056723
+            ],
+            "ci983": [
+              -0.002562818767834784,
+              0.011485546695700372
+            ],
+            "n_matches": 552,
+            "n_dates": 118
+          }
+        },
+        {
+          "season": "2023/24",
+          "n": 552,
+          "rps_model": 0.22620111452415206,
+          "rps_close": 0.212559707515135,
+          "gap": {
+            "mean": 0.01364140700901707,
+            "ci95": [
+              0.0070147580983530985,
+              0.0206804414424948
+            ],
+            "ci983": [
+              0.0052613135987117495,
+              0.02226296351878376
+            ],
+            "n_matches": 552,
+            "n_dates": 112
+          }
+        },
+        {
+          "season": "2024/25",
+          "n": 552,
+          "rps_model": 0.21261741478026974,
+          "rps_close": 0.2075705765734506,
+          "gap": {
+            "mean": 0.0050468382068191465,
+            "ci95": [
+              -0.0007865325158245054,
+              0.011241063397442517
+            ],
+            "ci983": [
+              -0.002295357355792991,
+              0.012620612584973646
+            ],
+            "n_matches": 552,
+            "n_dates": 126
+          }
+        },
+        {
+          "season": "2025/26",
+          "n": 552,
+          "rps_model": 0.22505983730822518,
+          "rps_close": 0.21587756515627898,
+          "gap": {
+            "mean": 0.0091822721519462,
+            "ci95": [
+              0.004563876103034373,
+              0.013749467567918824
+            ],
+            "ci983": [
+              0.003628698656230855,
+              0.014690641359383442
+            ],
+            "n_matches": 552,
+            "n_dates": 116
+          }
+        },
+        {
+          "season": "2026/27",
+          "n": 95,
+          "rps_model": 0.24163745022450736,
+          "rps_close": 0.21173838821062083,
+          "gap": {
+            "mean": 0.02989906201388652,
+            "ci95": [
+              0.01582951067895355,
+              0.04409225334069455
+            ],
+            "ci983": [
+              0.01187942989633752,
+              0.047799424662868274
+            ],
+            "n_matches": 95,
+            "n_dates": 21
+          }
+        }
+      ],
+      "roi_threshold_0": {
+        "mean": -0.0709372026641294,
+        "ci95": [
+          -0.11530249086273406,
+          -0.02453007735072703
+        ],
+        "ci983": [
+          -0.12703058106358509,
+          -0.01626721000506748
+        ],
+        "n_matches": 4204,
+        "n_dates": 916
+      },
+      "betting": [
+        {
+          "threshold": 0.0,
+          "n_bets": 4204,
+          "roi": -0.0709372026641294,
+          "roi_ci95": [
+            -0.11446729305423407,
+            -0.026588606089438634
+          ],
+          "mean_clv": -0.03854587195604114,
+          "share_positive_clv": 0.2602283539486204,
+          "bets_by_outcome": {
+            "H": 1891,
+            "D": 362,
+            "A": 1951
+          }
+        },
+        {
+          "threshold": 0.03,
+          "n_bets": 3721,
+          "roi": -0.07196721311475408,
+          "roi_ci95": [
+            -0.11958075786079012,
+            -0.02455374899220641
+          ],
+          "mean_clv": -0.03842080417968452,
+          "share_positive_clv": 0.2631013168503091,
+          "bets_by_outcome": {
+            "H": 1664,
+            "D": 262,
+            "A": 1795
+          }
+        },
+        {
+          "threshold": 0.05,
+          "n_bets": 3386,
+          "roi": -0.07650915534554044,
+          "roi_ci95": [
+            -0.12571212344949792,
+            -0.02699579149438871
+          ],
+          "mean_clv": -0.038841262301445134,
+          "share_positive_clv": 0.2631423508564678,
+          "bets_by_outcome": {
+            "H": 1518,
+            "D": 214,
+            "A": 1654
+          }
+        },
+        {
+          "threshold": 0.1,
+          "n_bets": 2529,
+          "roi": -0.08440490312376434,
+          "roi_ci95": [
+            -0.14229893238434163,
+            -0.02533728746540135
+          ],
+          "mean_clv": -0.039146795737535135,
+          "share_positive_clv": 0.26453143534994067,
+          "bets_by_outcome": {
+            "H": 1083,
+            "D": 127,
+            "A": 1319
+          }
+        }
+      ],
+      "overround": {
+        "open": {
+          "all": 0.03588715920897217,
+          "n": 4510,
+          "pinnacle": 0.03310503718228363,
+          "market_avg": 0.06536048792872404
+        },
+        "close": {
+          "all": 0.033298859952083426,
+          "n": 4511,
+          "pinnacle": 0.03041193682204318,
+          "market_avg": 0.06486408031307905
+        }
+      },
+      "calibration": {
+        "model": {
+          "home": [
+            {
+              "pred": 0.053667317671509854,
+              "actual": 0.14285714285714285,
+              "n": 28
+            },
+            {
+              "pred": 0.16216185173868392,
+              "actual": 0.32211538461538464,
+              "n": 208
+            },
+            {
+              "pred": 0.25652392114005934,
+              "actual": 0.3060200668896321,
+              "n": 598
+            },
+            {
+              "pred": 0.35335027412940295,
+              "actual": 0.3767441860465116,
+              "n": 1075
+            },
+            {
+              "pred": 0.4487507250590544,
+              "actual": 0.4275184275184275,
+              "n": 1221
+            },
+            {
+              "pred": 0.5447760777705918,
+              "actual": 0.48717948717948717,
+              "n": 819
+            },
+            {
+              "pred": 0.6403683919578397,
+              "actual": 0.601063829787234,
+              "n": 376
+            },
+            {
+              "pred": 0.7403920021972649,
+              "actual": 0.738562091503268,
+              "n": 153
+            },
+            {
+              "pred": 0.8411720720771263,
+              "actual": 0.5555555555555556,
+              "n": 27
+            }
+          ],
+          "draw": [
+            {
+              "pred": 0.1726420500814502,
+              "actual": 0.21613832853025935,
+              "n": 347
+            },
+            {
+              "pred": 0.25669508224183674,
+              "actual": 0.26976614699331847,
+              "n": 3592
+            },
+            {
+              "pred": 0.3201253376263619,
+              "actual": 0.27121771217712176,
+              "n": 542
+            }
+          ],
+          "away": [
+            {
+              "pred": 0.06979814582799732,
+              "actual": 0.11392405063291139,
+              "n": 158
+            },
+            {
+              "pred": 0.15982861927594913,
+              "actual": 0.1919889502762431,
+              "n": 724
+            },
+            {
+              "pred": 0.2518514327390934,
+              "actual": 0.28251748251748254,
+              "n": 1430
+            },
+            {
+              "pred": 0.34608455121068604,
+              "actual": 0.3319039451114923,
+              "n": 1166
+            },
+            {
+              "pred": 0.443147978769298,
+              "actual": 0.3852080123266564,
+              "n": 649
+            },
+            {
+              "pred": 0.5459699854887686,
+              "actual": 0.4742647058823529,
+              "n": 272
+            },
+            {
+              "pred": 0.6403041060178686,
+              "actual": 0.43023255813953487,
+              "n": 86
+            },
+            {
+              "pred": 0.744652463753888,
+              "actual": 0.2777777777777778,
+              "n": 18
+            }
+          ]
+        },
+        "close_home": [
+          {
+            "pred": 0.16679363928401378,
+            "actual": 0.22666666666666666,
+            "n": 150
+          },
+          {
+            "pred": 0.2602955359903625,
+            "actual": 0.2521891418563923,
+            "n": 571
+          },
+          {
+            "pred": 0.3525661018830298,
+            "actual": 0.3540175019888624,
+            "n": 1257
+          },
+          {
+            "pred": 0.4470955024476432,
+            "actual": 0.44912012241775057,
+            "n": 1307
+          },
+          {
+            "pred": 0.5458209171869448,
+            "actual": 0.5468354430379747,
+            "n": 790
+          },
+          {
+            "pred": 0.6413686341655987,
+            "actual": 0.6677018633540373,
+            "n": 322
+          },
+          {
+            "pred": 0.7381249208753012,
+            "actual": 0.7422680412371134,
+            "n": 97
+          }
+        ]
+      },
+      "entrant_subgroups": {
+        "from_above": {
+          "n": 247,
+          "rps_model": 0.22600551024957366,
+          "rps_close": 0.20075092242731987,
+          "gap": {
+            "mean": 0.02525458782225377,
+            "ci95": [
+              0.009288455279577454,
+              0.04209018100335579
+            ],
+            "ci983": [
+              0.006234550371457801,
+              0.045894058552102386
+            ],
+            "n_matches": 247,
+            "n_dates": 152
+          }
+        },
+        "from_below": {
+          "n": 215,
+          "rps_model": 0.23599819418773083,
+          "rps_close": 0.21049319072702682,
+          "gap": {
+            "mean": 0.025505003460703956,
+            "ci95": [
+              0.010209377908862251,
+              0.041334278643539696
+            ],
+            "ci983": [
+              0.007256586848964236,
+              0.04490341256240014
+            ],
+            "n_matches": 215,
+            "n_dates": 119
+          }
+        },
+        "all_other_matches": {
+          "n": 4049,
+          "rps_model": 0.22167798375809716,
+          "rps_close": 0.2151340148145834,
+          "gap": {
+            "mean": 0.0065439689435137305,
+            "ci95": [
+              0.004679553860327532,
+              0.008448592460112994
+            ],
+            "ci983": [
+              0.004321912955143203,
+              0.008834655398308732
+            ],
+            "n_matches": 4049,
+            "n_dates": 878
+          }
+        }
+      }
+    }
+  }
+}
