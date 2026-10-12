@@ -35,3 +35,6 @@ SEED = 42
 # (reports/summary.json "chosen_xi"); a test fails if the two ever drift apart.
 MODEL_NAME = "dixon-coles"
 FORWARD_XI = 0.003
+# predict refuses if the newest training match is more than this many days before the
+# first kickoff (stale data download); `--allow-stale` overrides it.
+STALE_DAYS = 10

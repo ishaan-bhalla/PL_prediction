@@ -10,6 +10,8 @@ Commands
 """
 import argparse
 
+from premodel import config
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="premodel", description=__doc__,
@@ -24,6 +26,9 @@ def main(argv=None):
     pr = sub.add_parser("predict", help="predict upcoming fixtures")
     pr.add_argument("--no-refresh", action="store_true",
                     help="use the existing season and fixtures files (no download)")
+    pr.add_argument("--allow-stale", action="store_true",
+                    help=f"predict even if the newest played match is more than "
+                         f"{config.STALE_DAYS} days before the first kickoff")
     args = parser.parse_args(argv)
 
     if args.command == "download":
@@ -36,8 +41,11 @@ def main(argv=None):
         from premodel.backtest import run
         run()
     elif args.command == "predict":
-        from premodel.forward import run_predict
-        run_predict(refresh=not args.no_refresh)
+        from premodel.forward import NoFixturesError, StaleDataError, run_predict
+        try:
+            run_predict(refresh=not args.no_refresh, allow_stale=args.allow_stale)
+        except (NoFixturesError, StaleDataError) as e:
+            raise SystemExit(f"predict: {e}") from None
     if args.command in ("plots", "all"):
         from premodel.plots import render
         render()

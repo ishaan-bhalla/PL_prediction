@@ -39,6 +39,8 @@ flashy claims. Owner: Ishaan (MSc Data Science, Bristol).
   explicitly asks in that session.
 - Don't change backtest behaviour or reported numbers unless asked; if a change
   alters results, say so and regenerate `reports/`.
+- Suggested commit messages must be plain: no Co-Authored-By or any AI/Claude
+  attribution lines.
 
 ## Current baseline (test 2018/19–2026/27, 3,090 matches)
 Dixon-Coles RPS 0.2016 vs market closing 0.1955; naive 0.2344. Betting the
@@ -46,5 +48,8 @@ model's edges: CLV ≈ −2.9%, same as random bets → no edge over market.
 
 ## Roadmap
 1. Weekly forward pipeline + Solana commit-reveal (verifiable track record)
-2. Gradient-boosted model: DC ratings + xG + Elo + rest days, same harness
+2. Gradient-boosted model: DC ratings + xG + Elo + rest days, same harness.
+   Shrink low-sample team ratings toward the promoted-team prior (evaluate in
+   backtest first; currently a team with few matches gets extreme ratings, e.g.
+   Coventry attack −1.50 after 5 games).
 3. Solana AI agent project (separate repo)

@@ -29,6 +29,10 @@ class NoFixturesError(RuntimeError):
     """No upcoming, uncommitted fixtures to predict."""
 
 
+class StaleDataError(RuntimeError):
+    """The newest training match is too long before the round's first kickoff."""
+
+
 def iso_utc(ts: pd.Timestamp) -> str:
     return ts.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -100,14 +104,32 @@ def training_cutoff(fixtures: pd.DataFrame) -> pd.Timestamp:
     return first.tz_convert(config.KICKOFF_TZ).normalize().tz_localize(None)
 
 
-def fit_and_predict(matches: pd.DataFrame, fixtures: pd.DataFrame, xi: float,
-                    lookback_days: int = config.LOOKBACK_DAYS):
-    """Fit Dixon-Coles on matches before the round and return (probs (n, 3), train)."""
+def training_window(matches: pd.DataFrame, fixtures: pd.DataFrame,
+                    lookback_days: int = config.LOOKBACK_DAYS) -> pd.DataFrame:
+    """Matches in the lookback window ending the day before the round's first kickoff."""
     cutoff = training_cutoff(fixtures)
     train = matches[(matches.date < cutoff)
                     & (matches.date >= cutoff - pd.Timedelta(days=lookback_days))]
     if train.empty:
         raise ValueError(f"no training matches before {cutoff.date()}")
+    return train
+
+
+def is_stale(train: pd.DataFrame, fixtures: pd.DataFrame,
+             stale_days: int = config.STALE_DAYS) -> tuple[bool, str]:
+    """(stale?, message) comparing the newest training match to the first kickoff date."""
+    last, first = train.date.max(), training_cutoff(fixtures)
+    gap = (first - last).days
+    msg = (f"newest training match is {last:%Y-%m-%d}, {gap} days before the first kickoff "
+           f"on {first:%Y-%m-%d} (STALE_DAYS = {stale_days})")
+    return gap > stale_days, msg
+
+
+def fit_and_predict(matches: pd.DataFrame, fixtures: pd.DataFrame, xi: float,
+                    lookback_days: int = config.LOOKBACK_DAYS):
+    """Fit Dixon-Coles on matches before the round and return (probs (n, 3), train)."""
+    cutoff = training_cutoff(fixtures)
+    train = training_window(matches, fixtures, lookback_days)
     params = dc.fit(train.home.to_numpy(), train.away.to_numpy(),
                     train.hg.to_numpy(), train.ag.to_numpy(),
                     (cutoff - train.date).dt.days.to_numpy(), xi)
@@ -139,7 +161,8 @@ def round_id_for(fixtures: pd.DataFrame) -> str:
 
 
 def build_payload(fixtures: pd.DataFrame, probs_micro: np.ndarray, train: pd.DataFrame,
-                  xi: float, now: pd.Timestamp, git: tuple[str, bool]) -> dict:
+                  xi: float, now: pd.Timestamp, git: tuple[str, bool],
+                  stale_override: bool = False) -> dict:
     rows = []
     for f, pm in zip(fixtures.itertuples(index=False), probs_micro, strict=True):
         odds = [f.open_h, f.open_d, f.open_a]
@@ -163,6 +186,7 @@ def build_payload(fixtures: pd.DataFrame, probs_micro: np.ndarray, train: pd.Dat
         "xi": float(xi),
         "lookback_days": config.LOOKBACK_DAYS,
         "generated_at": iso_utc(now),
+        "stale_override": stale_override,
         "training": {
             "n_matches": int(len(train)),
             "first_match_date": f"{train.date.min():%Y-%m-%d}",
@@ -175,16 +199,26 @@ def build_payload(fixtures: pd.DataFrame, probs_micro: np.ndarray, train: pd.Dat
 def predict_round(matches: pd.DataFrame, fixtures: pd.DataFrame, now: pd.Timestamp,
                   pending_dir: Path = config.PENDING_DIR,
                   revealed_dir: Path = config.REVEALED_DIR,
-                  xi: float = config.FORWARD_XI, git: tuple[str, bool] | None = None) -> dict:
-    """Predictions payload for the next round (pure apart from reading committed rounds)."""
+                  xi: float = config.FORWARD_XI, git: tuple[str, bool] | None = None,
+                  allow_stale: bool = False, stale_days: int = config.STALE_DAYS) -> dict:
+    """Predictions payload for the next round (pure apart from reading committed rounds).
+
+    Raises StaleDataError if the training data ends more than `stale_days` before the
+    first kickoff, unless `allow_stale`, which records "stale_override": true instead.
+    """
     if now.tzinfo is None:
         raise ValueError("`now` must be timezone-aware")
     fx = select_upcoming(fixtures, now, committed_fixture_keys(pending_dir, revealed_dir))
     if fx.empty:
         raise NoFixturesError("no upcoming uncommitted E0 fixtures in fixtures.csv")
     check_team_names(fx, set(matches.home) | set(matches.away))
+    stale, msg = is_stale(training_window(matches, fx), fx, stale_days)
+    if stale and not allow_stale:
+        raise StaleDataError(f"{msg}. Refresh the data, or pass --allow-stale if this is "
+                             "expected (e.g. an international break).")
     p, train = fit_and_predict(matches, fx, xi)
-    return build_payload(fx, to_micro(p), train, xi, now, git or git_info())
+    return build_payload(fx, to_micro(p), train, xi, now, git or git_info(),
+                         stale_override=stale)
 
 
 def write_round(payload: dict, pending_dir: Path = config.PENDING_DIR,
@@ -199,12 +233,13 @@ def write_round(payload: dict, pending_dir: Path = config.PENDING_DIR,
     return path
 
 
-def run_predict(now: pd.Timestamp | None = None, refresh: bool = True) -> Path:
+def run_predict(now: pd.Timestamp | None = None, refresh: bool = True,
+                allow_stale: bool = False) -> Path:
     now = now if now is not None else pd.Timestamp.now(tz="UTC")
     if refresh:
         download([config.CURRENT_SEASON], overwrite=True)
         download_fixtures()
-    payload = predict_round(load_matches(), load_fixtures(), now)
+    payload = predict_round(load_matches(), load_fixtures(), now, allow_stale=allow_stale)
     path = write_round(payload)
 
     t = payload["training"]
@@ -214,6 +249,8 @@ def run_predict(now: pd.Timestamp | None = None, refresh: bool = True) -> Path:
     for f in payload["fixtures"]:
         print(f"  {f['kickoff_utc']}  {f['home']:>16} v {f['away']:<16} "
               f"H {f['p_home']:.3f}  D {f['p_draw']:.3f}  A {f['p_away']:.3f}")
+    if payload["stale_override"]:
+        print("  warning: training data is stale; recorded stale_override = true")
     if payload["git_dirty"]:
         print("  warning: src/ has uncommitted changes (git_dirty = true)")
     print(f"wrote {path.relative_to(config.ROOT) if path.is_relative_to(config.ROOT) else path}")
