@@ -177,24 +177,25 @@ def test_write_round_refuses_to_overwrite_a_committed_round(dirs):
 # --- staleness guard --------------------------------------------------------------------
 
 def test_predict_refuses_stale_training_data_with_both_dates(dirs):
-    m = make_matches(end="2026-10-05")  # 12 days before the 2026-10-17 first kickoff
+    m = make_matches(end="2026-09-30")  # 17 days before the 2026-10-17 first kickoff
     with pytest.raises(forward.StaleDataError) as e:
         forward.predict_round(m, FIXTURES, NOW, git=GIT, **dirs)
-    assert "2026-10-05" in str(e.value) and "2026-10-17" in str(e.value)
+    assert "2026-09-30" in str(e.value) and "2026-10-17" in str(e.value)
     assert "--allow-stale" in str(e.value)
 
 
 def test_predict_stale_boundary_is_inclusive_of_stale_days(dirs):
-    m = make_matches(end="2026-10-07")  # exactly STALE_DAYS (10) before: allowed
+    assert config.STALE_DAYS == 16
+    m = make_matches(end="2026-10-01")  # exactly STALE_DAYS (16) before: allowed
     payload = forward.predict_round(m, FIXTURES, NOW, git=GIT, **dirs)
     assert payload["stale_override"] is False
 
 
 def test_allow_stale_predicts_and_records_override(dirs):
-    m = make_matches(end="2026-10-05")
+    m = make_matches(end="2026-09-30")
     payload = forward.predict_round(m, FIXTURES, NOW, git=GIT, allow_stale=True, **dirs)
     assert payload["stale_override"] is True
-    assert payload["training"]["last_match_date"] == "2026-10-05"
+    assert payload["training"]["last_match_date"] == "2026-09-30"
     path = forward.write_round(payload, **dirs)
     assert json.loads(path.read_bytes())["stale_override"] is True
 

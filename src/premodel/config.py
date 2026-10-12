@@ -37,4 +37,18 @@ MODEL_NAME = "dixon-coles"
 FORWARD_XI = 0.003
 # predict refuses if the newest training match is more than this many days before the
 # first kickoff (stale data download); `--allow-stale` overrides it.
-STALE_DAYS = 10
+STALE_DAYS = 16
+
+# On-chain commitments (Solana devnet only; there is deliberately no mainnet path)
+PREDICTIONS_TEST_DIR = PREDICTIONS_DIR / "test"  # --test dry runs, git-ignored
+CLUSTER = "devnet"
+DEVNET_RPC_URL = "https://api.devnet.solana.com"
+DEVNET_GENESIS_HASH = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"
+MEMO_PROGRAM_ID = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+EXPLORER_TX_URL = "https://explorer.solana.com/tx/{sig}?cluster=devnet"
+KEYPAIR_PATH = Path("~/.config/solana/premodel-devnet.json")            # env SOLANA_KEYPAIR
+TEST_KEYPAIR_PATH = Path("~/.config/solana/premodel-devnet-test.json")  # SOLANA_TEST_KEYPAIR
+# Public key of the wallet whose memos form the official record. Empty until set;
+# commit (real), verify and audit refuse to run without it.
+CANONICAL_SIGNER = ""
+REVEAL_DELAY_HOURS = 3  # reveal allowed from last kickoff + this

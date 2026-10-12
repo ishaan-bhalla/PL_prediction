@@ -15,13 +15,11 @@ import numpy as np
 import pandas as pd
 
 from premodel import __version__, config
-from premodel.commitment import canonical_json
+from premodel.commitment import COMMIT_FILE, PRED_FILE, canonical_json
 from premodel.data import download, load_matches, open_odds
 from premodel.models import dixon_coles as dc
 
 SCHEMA = "premodel/predictions/v1"
-PRED_FILE = "predictions.json"
-COMMIT_FILE = "commit.json"
 MICRO = 1_000_000  # probabilities are stored in millionths (6 decimals)
 
 
