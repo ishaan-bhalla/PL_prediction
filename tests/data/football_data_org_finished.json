@@ -1,0 +1,29 @@
+{
+  "fetched_at": "2026-10-12T08:00:00Z",
+  "response": {
+    "filters": {"season": "2026", "status": ["FINISHED"]},
+    "resultSet": {"count": 4},
+    "matches": [
+      {"id": 1, "utcDate": "2026-08-21T19:00:00Z", "status": "FINISHED",
+       "homeTeam": {"name": "Hull City AFC", "shortName": "Hull City", "tla": "HUL"},
+       "awayTeam": {"name": "Nottingham Forest FC", "shortName": "Nottingham", "tla": "NOT"},
+       "score": {"winner": "HOME_TEAM", "duration": "REGULAR",
+                 "fullTime": {"home": 2, "away": 1}, "halfTime": {"home": 1, "away": 0}}},
+      {"id": 2, "utcDate": "2026-08-22T23:30:00Z", "status": "FINISHED",
+       "homeTeam": {"name": "Brighton & Hove Albion FC", "shortName": "Brighton Hove", "tla": "BHA"},
+       "awayTeam": {"name": "Coventry City FC", "shortName": "Coventry City", "tla": "COV"},
+       "score": {"winner": "DRAW", "duration": "REGULAR",
+                 "fullTime": {"home": 0, "away": 0}, "halfTime": {"home": 0, "away": 0}}},
+      {"id": 3, "utcDate": "2027-01-02T15:00:00Z", "status": "FINISHED",
+       "homeTeam": {"name": "Liverpool FC", "shortName": "Liverpool", "tla": "LIV"},
+       "awayTeam": {"name": "Manchester City FC", "shortName": "Man City", "tla": "MCI"},
+       "score": {"winner": "AWAY_TEAM", "duration": "REGULAR",
+                 "fullTime": {"home": 0, "away": 3}, "halfTime": {"home": 0, "away": 0}}},
+      {"id": 4, "utcDate": "2027-01-03T15:00:00Z", "status": "TIMED",
+       "homeTeam": {"name": "Arsenal FC", "shortName": "Arsenal", "tla": "ARS"},
+       "awayTeam": {"name": "Chelsea FC", "shortName": "Chelsea", "tla": "CHE"},
+       "score": {"winner": null, "duration": "REGULAR",
+                 "fullTime": {"home": null, "away": null}, "halfTime": {"home": null, "away": null}}}
+    ]
+  }
+}

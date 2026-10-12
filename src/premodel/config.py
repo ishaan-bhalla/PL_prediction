@@ -55,3 +55,39 @@ REVEAL_DELAY_HOURS = 3  # reveal allowed from last kickoff + this
 # audit: an unrevealed round is "awaiting reveal" until 00:00 UTC on its round_id date
 # + this many days, then "overdue". Derived from the memo alone, so anyone can apply it.
 REVEAL_DEADLINE_DAYS = 10
+
+# Results fallback: football-data.org API v4 (football-data.co.uk's CSV lags a few days).
+# Key from env FOOTBALL_DATA_API_KEY (or .env); it is only ever sent as a request header.
+ENV_PATH = ROOT / ".env"
+RESULTS_API_URL = "https://api.football-data.org/v4/competitions/PL/matches?status=FINISHED"
+RESULTS_API_CACHE = PROCESSED_DIR / "football_data_org_pl_finished.json"
+# football-data.org team shortName -> football-data.co.uk name. Unmapped names fail loudly.
+API_TEAM_NAMES = {
+    # 2026/27 clubs, checked against the live API on 2026-10-12
+    "Arsenal": "Arsenal",
+    "Aston Villa": "Aston Villa",
+    "Bournemouth": "Bournemouth",
+    "Brentford": "Brentford",
+    "Brighton Hove": "Brighton",
+    "Chelsea": "Chelsea",
+    "Coventry City": "Coventry",
+    "Crystal Palace": "Crystal Palace",
+    "Everton": "Everton",
+    "Fulham": "Fulham",
+    "Hull City": "Hull",
+    "Ipswich Town": "Ipswich",
+    "Leeds United": "Leeds",
+    "Liverpool": "Liverpool",
+    "Man City": "Man City",
+    "Man United": "Man United",
+    "Newcastle": "Newcastle",
+    "Nottingham": "Nott'm Forest",
+    "Sunderland": "Sunderland",
+    "Tottenham": "Tottenham",
+    # recent PL clubs, not in the current API response (unverified until they return)
+    "Burnley": "Burnley",
+    "Leicester City": "Leicester",
+    "Southampton": "Southampton",
+    "West Ham": "West Ham",
+    "Wolverhampton": "Wolves",
+}

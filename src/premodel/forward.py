@@ -5,6 +5,12 @@ has not kicked off yet and is not already part of a committed round. The model
 is fitted on matches played strictly before the date of the round's first
 kickoff (same xi and lookback window as the backtest), so no result from the
 round itself, or anything after it, can leak into the predictions.
+
+Training results are the season CSVs plus, for matches the CSV does not have yet,
+football-data.org API results (premodel.results). Before fitting, the data must be
+complete: every match the live API reports as finished before the first kickoff
+must be in the training window. Without a live API response the older calendar
+rule applies instead (newest match at most STALE_DAYS before the first kickoff).
 """
 import json
 import subprocess
@@ -16,8 +22,9 @@ import pandas as pd
 
 from premodel import __version__, config
 from premodel.commitment import COMMIT_FILE, PRED_FILE, canonical_json
-from premodel.data import download, load_matches, open_odds
+from premodel.data import download, load_matches, open_odds, season_of
 from premodel.models import dixon_coles as dc
+from premodel.results import ApiResults, get_api_results, merge_results
 
 SCHEMA = "premodel/predictions/v1"
 MICRO = 1_000_000  # probabilities are stored in millionths (6 decimals)
@@ -33,12 +40,6 @@ class StaleDataError(RuntimeError):
 
 def iso_utc(ts: pd.Timestamp) -> str:
     return ts.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def season_of(kickoff: pd.Timestamp) -> str:
-    """Season label in the same format as data.load_season, e.g. "2026/27"."""
-    y = kickoff.year if kickoff.month >= 7 else kickoff.year - 1
-    return f"{y}/{(y + 1) % 100:02d}"
 
 
 def download_fixtures(url: str = config.FIXTURES_URL, dest: Path = config.FIXTURES_PATH):
@@ -123,6 +124,29 @@ def is_stale(train: pd.DataFrame, fixtures: pd.DataFrame,
     return gap > stale_days, msg
 
 
+def missing_finished(api_rows: pd.DataFrame, train: pd.DataFrame,
+                     first_kickoff: pd.Timestamp) -> list[str]:
+    """API-finished matches kicked off before `first_kickoff` that are not in `train`."""
+    done = api_rows[api_rows.kickoff_utc < first_kickoff]
+    have = set(zip(train.season, train.home, train.away, strict=True))
+    return [f"{d:%Y-%m-%d} {h} v {a}"
+            for s, d, h, a in zip(done.season, done.date, done.home, done.away, strict=True)
+            if (s, h, a) not in have]
+
+
+def staleness(train: pd.DataFrame, fixtures: pd.DataFrame, api: ApiResults | None,
+              stale_days: int = config.STALE_DAYS) -> tuple[str, bool, str]:
+    """(check used, stale?, message): API completeness if live, else the calendar rule."""
+    if api is not None and api.live:
+        missing = missing_finished(api.rows, train, fixtures.kickoff_utc.min())
+        msg = (f"{len(missing)} match(es) the results API reports as finished before the "
+               f"first kickoff are missing from the training data: {', '.join(missing[:5])}"
+               f"{' ...' if len(missing) > 5 else ''}")
+        return "api_completeness", bool(missing), msg
+    stale, msg = is_stale(train, fixtures, stale_days)
+    return "calendar", stale, f"no live results API, so using the calendar check: {msg}"
+
+
 def fit_and_predict(matches: pd.DataFrame, fixtures: pd.DataFrame, xi: float,
                     lookback_days: int = config.LOOKBACK_DAYS):
     """Fit Dixon-Coles on matches before the round and return (probs (n, 3), train)."""
@@ -160,7 +184,7 @@ def round_id_for(fixtures: pd.DataFrame) -> str:
 
 def build_payload(fixtures: pd.DataFrame, probs_micro: np.ndarray, train: pd.DataFrame,
                   xi: float, now: pd.Timestamp, git: tuple[str, bool],
-                  stale_override: bool = False) -> dict:
+                  stale_override: bool = False, staleness_check: str = "calendar") -> dict:
     rows = []
     for f, pm in zip(fixtures.itertuples(index=False), probs_micro, strict=True):
         odds = [f.open_h, f.open_d, f.open_a]
@@ -185,10 +209,12 @@ def build_payload(fixtures: pd.DataFrame, probs_micro: np.ndarray, train: pd.Dat
         "lookback_days": config.LOOKBACK_DAYS,
         "generated_at": iso_utc(now),
         "stale_override": stale_override,
+        "staleness_check": staleness_check,
         "training": {
             "n_matches": int(len(train)),
             "first_match_date": f"{train.date.min():%Y-%m-%d}",
             "last_match_date": f"{train.date.max():%Y-%m-%d}",
+            "n_api_rows": int((train.source == "api").sum()) if "source" in train else 0,
         },
         "fixtures": rows,
     }
@@ -198,25 +224,28 @@ def predict_round(matches: pd.DataFrame, fixtures: pd.DataFrame, now: pd.Timesta
                   pending_dir: Path = config.PENDING_DIR,
                   revealed_dir: Path = config.REVEALED_DIR,
                   xi: float = config.FORWARD_XI, git: tuple[str, bool] | None = None,
-                  allow_stale: bool = False, stale_days: int = config.STALE_DAYS) -> dict:
+                  allow_stale: bool = False, stale_days: int = config.STALE_DAYS,
+                  api: ApiResults | None = None) -> dict:
     """Predictions payload for the next round (pure apart from reading committed rounds).
 
-    Raises StaleDataError if the training data ends more than `stale_days` before the
-    first kickoff, unless `allow_stale`, which records "stale_override": true instead.
+    `matches` (CSV) are merged with `api` rows. Raises StaleDataError if the training data
+    is incomplete (see `staleness`), unless `allow_stale`, which records
+    "stale_override": true instead.
     """
+    matches = merge_results(matches, api.rows if api is not None else None)
     if now.tzinfo is None:
         raise ValueError("`now` must be timezone-aware")
     fx = select_upcoming(fixtures, now, committed_fixture_keys(pending_dir, revealed_dir))
     if fx.empty:
         raise NoFixturesError("no upcoming uncommitted E0 fixtures in fixtures.csv")
     check_team_names(fx, set(matches.home) | set(matches.away))
-    stale, msg = is_stale(training_window(matches, fx), fx, stale_days)
+    check, stale, msg = staleness(training_window(matches, fx), fx, api, stale_days)
     if stale and not allow_stale:
         raise StaleDataError(f"{msg}. Refresh the data, or pass --allow-stale if this is "
-                             "expected (e.g. an international break).")
+                             "expected.")
     p, train = fit_and_predict(matches, fx, xi)
     return build_payload(fx, to_micro(p), train, xi, now, git or git_info(),
-                         stale_override=stale)
+                         stale_override=stale, staleness_check=check)
 
 
 def write_round(payload: dict, pending_dir: Path = config.PENDING_DIR,
@@ -237,10 +266,17 @@ def run_predict(now: pd.Timestamp | None = None, refresh: bool = True,
     if refresh:
         download([config.CURRENT_SEASON], overwrite=True)
         download_fixtures()
-    payload = predict_round(load_matches(), load_fixtures(), now, allow_stale=allow_stale)
+    api, status = get_api_results(refresh)
+    print(status)
+    payload = predict_round(load_matches(), load_fixtures(), now, allow_stale=allow_stale,
+                            api=api)
     path = write_round(payload)
 
     t = payload["training"]
+    print(f"staleness check: {payload['staleness_check']}"
+          + ("  (calendar fallback: results API not live)"
+             if payload["staleness_check"] == "calendar" else "")
+          + f"; {t['n_api_rows']} training rows from the results API")
     print(f"\nRound {payload['round_id']}: {len(payload['fixtures'])} fixtures  "
           f"(trained on {t['n_matches']} matches, {t['first_match_date']} .. "
           f"{t['last_match_date']}, xi={payload['xi']})")

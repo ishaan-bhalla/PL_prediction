@@ -18,6 +18,12 @@ from premodel.config import DOWNLOAD_URL, RAW_DIR, SEASONS
 RESULT_LABELS = {0: "H", 1: "D", 2: "A"}
 
 
+def season_of(date: pd.Timestamp) -> str:
+    """Season label in the same format as load_season, e.g. "2026/27"."""
+    y = date.year if date.month >= 7 else date.year - 1
+    return f"{y}/{(y + 1) % 100:02d}"
+
+
 def download(seasons: list[str] = SEASONS, dest: Path = RAW_DIR, overwrite: bool = False):
     """Fetch E0.csv for each season code (e.g. "1415") into data/raw/E0_<code>.csv."""
     dest.mkdir(parents=True, exist_ok=True)
