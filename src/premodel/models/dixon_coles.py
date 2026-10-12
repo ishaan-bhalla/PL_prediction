@@ -45,7 +45,7 @@ class Shrinkage:
     """Penalty lam * sum((att - m_att)^2 + (dfn - m_dfn)^2); prior: team -> (m_att, m_dfn).
 
     Teams not in `prior` are shrunk toward (0, 0), or not penalised at all if only_prior
-    (the "promoted-only" variant)."""
+    (the "promoted-only" variant). lam = inf fixes the penalised teams at their means."""
     lam: float
     prior: dict = field(default_factory=dict)
     only_prior: bool = False
@@ -146,6 +146,12 @@ def fit(home, away, hg, ag, days_ago, xi, init: DCParams | None = None,
     args = (hi, ai, np.asarray(hg), np.asarray(ag), w, n)
     if shrink is not None:
         lam_w, means = shrink.weights_and_means(teams)
+        fixed = np.isinf(lam_w)
+        for i in np.flatnonzero(fixed):  # lam = inf: rating fixed at the prior mean
+            theta0[i], theta0[n + i] = means[i]
+            bounds[i] = (means[i, 0], means[i, 0])
+            bounds[n + i] = (means[i, 1], means[i, 1])
+        lam_w = np.where(fixed, 0.0, lam_w)
         if lam_w.any():  # all-zero weights: exactly the dc_v1 objective
             args += (lam_w, means[:, 0], means[:, 1])
     res = minimize(_neg_ll_and_grad, theta0, jac=True, method="L-BFGS-B",

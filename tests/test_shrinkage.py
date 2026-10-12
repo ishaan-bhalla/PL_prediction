@@ -94,6 +94,23 @@ def test_promoted_only_with_no_promoted_teams_is_exactly_dc_v1():
     assert np.array_equal(base.att, same.att) and np.array_equal(base.dfn, same.dfn)
 
 
+def test_infinite_lambda_fixes_promoted_teams_at_the_prior():
+    home, away, hg, ag, _ = simulate_league(n_teams=8, rounds=2)
+    days = np.ones(len(home))
+    prior = {"T0": (-0.3, 0.35), "T1": (-0.3, 0.35)}
+    free = dc.fit(home, away, hg, ag, days, 0.0)
+    fixed = dc.fit(home, away, hg, ag, days, 0.0,
+                   shrink=dc.Shrinkage(np.inf, prior, only_prior=True))
+    idx = fixed.index()
+    for t, (a, d) in prior.items():
+        assert (fixed.att[idx[t]], fixed.dfn[idx[t]]) == (a, d)
+    others = [idx[f"T{k}"] for k in range(2, 8)]
+    assert not np.allclose(fixed.att[others], prior["T0"][0])  # the rest are still fitted
+    assert np.abs(fixed.att[others] - free.att[others]).max() < 0.5
+    every = dc.fit(home, away, hg, ag, days, 0.0, shrink=dc.Shrinkage(np.inf, prior))
+    assert np.allclose(every.att[others], 0) and np.allclose(every.dfn[others], 0)
+
+
 def test_lambda_zero_reproduces_dc_v1_fit_exactly():
     home, away, hg, ag, _ = simulate_league(n_teams=8, rounds=2)
     days = np.arange(len(home))[::-1] + 1
@@ -266,3 +283,12 @@ def test_choose_uses_candidates_only_and_falls_back_to_dc_v1():
     assert sh.choose(curves) == ("promoted_only", 4)
     flat = {"uniform": [row(0, 0.2), row(1, 0.21)], "promoted_only": [row(0, 0.2)]}
     assert sh.choose(flat) == ("dc_v1", 0.0)
+
+
+def test_figure_renders_from_the_committed_summary(tmp_path):
+    from premodel.experiments.shrinkage_plot import render
+    summary = sh.OUT_DIR / "summary.json"
+    if not summary.exists():
+        pytest.skip("no experiment summary yet")
+    out = render(summary, tmp_path / "fig.png")
+    assert out.stat().st_size > 10_000

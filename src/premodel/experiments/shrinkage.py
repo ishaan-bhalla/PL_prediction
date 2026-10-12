@@ -24,7 +24,12 @@ from premodel.models import dixon_coles as dc
 
 PROB_COLS = ["p_h", "p_d", "p_a"]
 N_RELEGATED = 3
-LAM_GRID = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0]
+# Run 1 used 0.25-32 and selected promoted-only at the boundary (32). Run 2 extends the
+# grid upward on validation only, with the selection rule fixed before re-running: the
+# lowest validation RPS across both variants and the full grid is the reported model.
+# inf = penalised teams fixed at their prior mean.
+LAM_GRID = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0, float("inf")]
+RUN = 2
 # The candidates chosen between on validation RPS, and one diagnostic that never is.
 VARIANTS = {"uniform": {"only_prior": False, "zero_prior": False},
             "promoted_only": {"only_prior": True, "zero_prior": False}}
@@ -144,6 +149,10 @@ def per_match_rps(p: np.ndarray, y: np.ndarray) -> np.ndarray:
     return np.sum((cp - co) ** 2, axis=1) / 2
 
 
+def per_match_log_loss(p: np.ndarray, y: np.ndarray) -> np.ndarray:
+    return -np.log(np.clip(p[np.arange(len(y)), y], 1e-12, 1))
+
+
 def block_bootstrap(diff: np.ndarray, dates: np.ndarray, rng: np.random.Generator,
                     n: int = config.BOOTSTRAP_SAMPLES) -> dict:
     """Mean of `diff` with a 95% CI, resampling whole match dates (matches on one date
@@ -209,7 +218,10 @@ def compare(base: pd.DataFrame, var: pd.DataFrame, m: pd.DataFrame, seed: int) -
     """variant vs dc_v1 on the same matches (positive diff = variant worse)."""
     assert base.index.equals(var.index)
     y = base.result.to_numpy()
-    d = per_match_rps(var[PROB_COLS].to_numpy(), y) - per_match_rps(base[PROB_COLS].to_numpy(), y)
+    pv, pb = var[PROB_COLS].to_numpy(), base[PROB_COLS].to_numpy()
+    d = per_match_rps(pv, y) - per_match_rps(pb, y)                  # primary
+    dl = per_match_log_loss(pv, y) - per_match_log_loss(pb, y)       # secondary
+    dates = base.date.to_numpy()
     rng = np.random.default_rng(seed)
     early = promoted_early(base, m)
     per_season = []
@@ -218,18 +230,21 @@ def compare(base: pd.DataFrame, var: pd.DataFrame, m: pd.DataFrame, seed: int) -
         per_season.append({"season": s, "n": int(k.sum()),
                            "rps_dc_v1": _scores(base[k])["rps"],
                            "rps_variant": _scores(var[k])["rps"],
-                           "rps_diff": block_bootstrap(d[k], base.date.to_numpy()[k], rng)})
+                           "rps_diff": block_bootstrap(d[k], dates[k], rng),
+                           "log_loss_diff": block_bootstrap(dl[k], dates[k], rng)})
     subgroups = {}
     for label, k in (("promoted_first_10_games", early), ("all_other_matches", ~early)):
         subgroups[label] = {"n": int(k.sum()), "dc_v1": _scores(base[k]),
                             "variant": _scores(var[k]),
-                            "rps_diff": block_bootstrap(d[k], base.date.to_numpy()[k], rng)}
+                            "rps_diff": block_bootstrap(d[k], dates[k], rng),
+                            "log_loss_diff": block_bootstrap(dl[k], dates[k], rng)}
     bet_rng = np.random.default_rng(config.SEED)
     return {
         "n_matches": int(len(base)),
         "dc_v1": _scores(base), "variant": _scores(var),
         "market_close": score_all(devig(base[backtest.CLOSE_COLS].to_numpy()), y),
-        "rps_diff": block_bootstrap(d, base.date.to_numpy(), rng),
+        "rps_diff": block_bootstrap(d, dates, rng),
+        "log_loss_diff": block_bootstrap(dl, dates, rng),
         "per_season": per_season,
         "subgroups": subgroups,
         "calibration": {name: {o: calibration_table(df[PROB_COLS].to_numpy(), y, i)
@@ -289,7 +304,7 @@ def _clean(o):
     if isinstance(o, (list, tuple)):
         return [_clean(v) for v in o]
     if isinstance(o, (np.floating, float)):
-        return None if np.isnan(o) else float(o)
+        return None if np.isnan(o) else "inf" if np.isinf(o) else float(o)
     if isinstance(o, np.integer):
         return int(o)
     return o
@@ -333,6 +348,12 @@ def run(out_dir: Path = OUT_DIR) -> dict:
                 if len(extra) else None)
     secondary = [n for n in VARIANTS if n != variant]
     summary = {
+        "run": RUN,
+        "protocol": ("lam grid extended to 64, 128, 256 and inf after run 1 selected the "
+                     "boundary (promoted-only, lam=32); run 1's test numbers had been seen. "
+                     "Rule fixed before this run: lowest validation RPS across both variants "
+                     "and the full grid is the reported model, whatever its test result; no "
+                     "further changes. RPS is primary, log-loss secondary."),
         "xi": xi, "lam_grid": LAM_GRID, "priors_by_season": priors,
         "published_check": {"n": len(base), "dc_v1": got, "published": ref},
         "tuning": curves,
@@ -354,6 +375,8 @@ def run(out_dir: Path = OUT_DIR) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "summary.json").write_text(json.dumps(_clean(summary), indent=2) + "\n")
     _print(summary)
+    from premodel.experiments.shrinkage_plot import render
+    print(f"wrote {render(out_dir / 'summary.json', out_dir / 'shrinkage.png')}")
     return summary
 
 
@@ -369,9 +392,11 @@ def _print(s: dict):
             if c is None:
                 continue
             d = c["rps_diff"]
+            dl = c["log_loss_diff"]
             print(f"{title} test, {name}: rps {c['variant']['rps']:.5f} vs dc_v1 "
                   f"{c['dc_v1']['rps']:.5f}  diff {d['mean']:+.5f} "
-                  f"[{d['ci95'][0]:+.5f}, {d['ci95'][1]:+.5f}]")
+                  f"[{d['ci95'][0]:+.5f}, {d['ci95'][1]:+.5f}]  | log-loss diff "
+                  f"{dl['mean']:+.5f} [{dl['ci95'][0]:+.5f}, {dl['ci95'][1]:+.5f}]")
             for k, g in c["subgroups"].items():
                 gd = g["rps_diff"]
                 print(f"    {k:<24} n={g['n']:<5} diff {gd['mean']:+.5f} "
