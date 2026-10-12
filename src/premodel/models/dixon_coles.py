@@ -10,8 +10,15 @@ and each past match is weighted by exp(-xi * days_ago).
 Fitting maximises the weighted log-likelihood with an analytic gradient
 (L-BFGS-B), plus a tiny ridge penalty and a sum-to-zero constraint on attack
 ratings for identifiability.
+
+Variant "dc_shrink" (experimental, opt-in via `fit(..., shrink=Shrinkage(...))`):
+an extra penalty lam * sum_i[(att_i - m_att_i)^2 + (dfn_i - m_dfn_i)^2] pulls each
+team toward a prior mean (0 unless given). One full-weight match carries roughly
+1.3 units of information about a team's attack, so lam ~ 1.3k acts like k
+pseudo-matches at the prior: large for a team with 5 matches, negligible for one
+with 60. With shrink=None (the "dc_v1" baseline) nothing changes.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from scipy.optimize import minimize
@@ -33,11 +40,19 @@ class DCParams:
         return {t: i for i, t in enumerate(self.teams)}
 
 
+@dataclass(frozen=True)
+class Shrinkage:
+    """Penalty lam * sum((att - m_att)^2 + (dfn - m_dfn)^2); prior: team -> (m_att, m_dfn),
+    teams not listed are shrunk toward (0, 0)."""
+    lam: float
+    prior: dict = field(default_factory=dict)
+
+
 def _unpack(theta, n):
     return theta[:n], theta[n:2 * n], theta[2 * n], theta[2 * n + 1]
 
 
-def _neg_ll_and_grad(theta, hi, ai, x, y, w, n):
+def _neg_ll_and_grad(theta, hi, ai, x, y, w, n, shrink_lam=0.0, m_att=None, m_dfn=None):
     att, dfn, gamma, rho = _unpack(theta, n)
     log_lam = gamma + att[hi] + dfn[ai]
     log_mu = att[ai] + dfn[hi]
@@ -87,13 +102,19 @@ def _neg_ll_and_grad(theta, hi, ai, x, y, w, n):
     pen = RIDGE * (att @ att + dfn @ dfn) + s * s
     g_att_pen = 2 * RIDGE * att + 2 * s
     g_dfn_pen = 2 * RIDGE * dfn
+    if shrink_lam:  # dc_shrink: pull toward per-team prior means
+        da, dd = att - m_att, dfn - m_dfn
+        pen = pen + shrink_lam * (da @ da + dd @ dd)
+        g_att_pen = g_att_pen + 2 * shrink_lam * da
+        g_dfn_pen = g_dfn_pen + 2 * shrink_lam * dd
 
     nll = -ll.sum() + pen
     grad = np.concatenate([-g_att + g_att_pen, -g_dfn + g_dfn_pen, [-g_gamma, -g_rho]])
     return nll, grad
 
 
-def fit(home, away, hg, ag, days_ago, xi, init: DCParams | None = None) -> DCParams:
+def fit(home, away, hg, ag, days_ago, xi, init: DCParams | None = None,
+        shrink: Shrinkage | None = None) -> DCParams:
     teams = sorted(set(home) | set(away))
     idx = {t: i for i, t in enumerate(teams)}
     n = len(teams)
@@ -113,8 +134,12 @@ def fit(home, away, hg, ag, days_ago, xi, init: DCParams | None = None) -> DCPar
         theta0[2 * n], theta0[2 * n + 1] = init.gamma, init.rho
 
     bounds = [(None, None)] * (2 * n + 1) + [(-0.3, 0.3)]
+    args = (hi, ai, np.asarray(hg), np.asarray(ag), w, n)
+    if shrink is not None and shrink.lam:
+        means = np.array([shrink.prior.get(t, (0.0, 0.0)) for t in teams], dtype=float)
+        args += (float(shrink.lam), means[:, 0], means[:, 1])
     res = minimize(_neg_ll_and_grad, theta0, jac=True, method="L-BFGS-B",
-                   args=(hi, ai, np.asarray(hg), np.asarray(ag), w, n), bounds=bounds)
+                   args=args, bounds=bounds)
     att, dfn, gamma, rho = _unpack(res.x, n)
     return DCParams(teams, att.copy(), dfn.copy(), float(gamma), float(rho))
 
