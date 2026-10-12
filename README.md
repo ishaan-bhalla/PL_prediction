@@ -45,6 +45,64 @@ For reference, betting a **random** outcome on every match gives CLV −2.9%
 This is the expected result for a goals-only model and it establishes the
 baseline any richer model (xG, Elo, lineups) has to beat.
 
+## Verifiable track record
+
+Backtests are easy to overfit, so the model also makes live forecasts whose
+timing anyone can check. Before each round, a hash of the predictions is posted
+on Solana **devnet** via the Memo program; after the round, the predictions are
+revealed in [`predictions/revealed/`](predictions/revealed/) and scored. A
+forecast cannot be edited after kickoff, and a bad week cannot be quietly
+dropped.
+
+Canonical signer: [`EKjxGc617c1YqVYGPGGNZutuLcHHnoEGR1Ku5iFjJSxo`](https://explorer.solana.com/address/EKjxGc617c1YqVYGPGGNZutuLcHHnoEGR1Ku5iFjJSxo?cluster=devnet)
+(only memos from this address count).
+
+**Weekly workflow** (`make setup` installs the Solana packages)
+
+1. `make predict`: refresh data, fit on matches strictly before the round, write
+   `predictions/pending/<round>/predictions.json`. Refuses if training data is
+   incomplete against the football-data.org schedule.
+2. `make commit`: before the first kickoff, post the commitment memo. Refuses
+   after kickoff, on uncommitted code changes, or on any non-devnet RPC.
+3. `make reveal`: from last kickoff + 3h, move the round to
+   `predictions/revealed/<round>/` and commit it to git.
+4. `make score`: score revealed rounds (RPS, Brier, log-loss for model vs open
+   and closing market; CLV) into `predictions/track_record.csv`.
+
+**The commitment.** `salt.hex` holds 32 random bytes, kept private until reveal
+so the hash gives nothing away. The commitment is
+`sha256(salt_bytes + predictions.json bytes)`, where `predictions.json` is
+canonical JSON (sorted keys, fixed float format), so the bytes are reproducible.
+The memo text is `premodel:v1:<round_id>:<commitment>`. `premodel-test:` memos
+are dry runs and are ignored.
+
+**Verify a round yourself.** Clone the repo, `pip install -e ".[onchain]"`, then:
+
+```bash
+python -m premodel verify --round E0-2026-10-17   # PASS, or FAIL: <reason>
+```
+
+This recomputes the hash from the revealed files and checks it against the
+on-chain memo. It also checks that the signer is the canonical address, that
+the block time is before the round's first kickoff, and that the signer posted
+no other commitment for that round. Without the package, recompute the hash and
+compare it with the memo shown on Explorer (the link is in the round's
+`commit.json`):
+
+```bash
+d=predictions/revealed/E0-2026-10-17
+python -c "import hashlib; print(hashlib.sha256(bytes.fromhex(open('$d/salt.hex').read().strip()) + open('$d/predictions.json','rb').read()).hexdigest())"
+```
+
+**Unrevealed rounds count against the record.** `python -m premodel audit`
+lists every `premodel:v1` memo the canonical signer has ever posted. A round
+committed but not revealed within 10 days of its date is flagged `overdue`, as
+are mismatched or duplicate commitments, and audit exits non-zero. A missing
+reveal should be read as a hidden bad forecast.
+
+Caveats: this is devnet, not mainnet, so it proves timing and integrity rather
+than economic stake. Block times are validator estimates (seconds of drift).
+
 ## Method
 
 - **Model**: home goals ~ Poisson(exp(γ + att_home + def_away)), away goals ~
@@ -72,6 +130,7 @@ Prem_prediction/
 │   ├── raw/                 # football-data.co.uk CSVs (git-ignored; `make data`)
 │   └── processed/           # regenerated outputs, e.g. test_predictions.csv
 ├── notebooks/               # exploration
+├── predictions/revealed/    # revealed rounds (pending/ stays private)
 ├── reports/
 │   ├── summary.json         # every metric from the latest backtest
 │   └── figures/             # charts used in this README
@@ -82,6 +141,11 @@ Prem_prediction/
 │   ├── models/dixon_coles.py
 │   ├── backtest.py          # walk-forward, betting sim, CLV
 │   ├── plots.py
+│   ├── forward.py           # weekly predictions for upcoming fixtures
+│   ├── results.py           # football-data.org results fallback
+│   ├── commitment.py        # canonical JSON, commitment, verify, audit
+│   ├── onchain.py           # Solana devnet client (only module using solana)
+│   ├── track_record.py      # reveal + score
 │   └── __main__.py          # CLI: python -m premodel <command>
 ├── tests/                   # model, metrics, and no-leakage tests
 ├── Makefile
@@ -92,10 +156,10 @@ Prem_prediction/
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-make setup      # pip install -e ".[dev]"
+make setup      # pip install -e ".[dev,onchain]"
 make data       # download season CSVs into data/raw/
 make all        # tune decay, walk-forward backtest, render charts (~30 s)
-make test       # 12 tests incl. a check that no fit ever sees future matches
+make test       # incl. checks that no fit ever sees future matches
 ```
 
 Data: [football-data.co.uk](https://www.football-data.co.uk) Premier League
@@ -105,6 +169,6 @@ CSVs.
 
 - [ ] Gradient-boosted model on Dixon-Coles ratings + xG (the 2026/27 files
       now include `HxG`/`AxG`), Elo and rest days; same walk-forward harness
-- [ ] Weekly forward pipeline logging predictions and CLV live
-- [ ] Commit-reveal of each week's predictions on Solana (Memo program) so the
+- [x] Weekly forward pipeline logging predictions and CLV live
+- [x] Commit-reveal of each week's predictions on Solana (Memo program) so the
       forward track record is verifiably pre-kickoff
