@@ -13,6 +13,8 @@ Commands
   audit      list every premodel:v1 memo by CANONICAL_SIGNER and flag unrevealed ones
   reveal     move a finished, committed round to predictions/revealed/ (commit it to git)
   score      score revealed rounds -> predictions/track_record.csv, print the summary
+  experiment run a model experiment, e.g. `experiment shrinkage`
+              -> reports/experiments/<name>/
 
 On-chain commands need  pip install -e ".[onchain]"  and only ever talk to devnet.
 """
@@ -181,6 +183,8 @@ def main(argv=None):
     sc.add_argument("--round", help="score only this revealed round (default: all)")
     sc.add_argument("--no-refresh", action="store_true",
                     help="use existing CSVs and the cached results API response")
+    ex = sub.add_parser("experiment", help="run a model experiment")
+    ex.add_argument("name", choices=["shrinkage"])
     args = parser.parse_args(argv)
 
     if args.command == "download":
@@ -198,6 +202,9 @@ def main(argv=None):
             run_predict(refresh=not args.no_refresh, allow_stale=args.allow_stale)
         except (NoFixturesError, StaleDataError) as e:
             raise SystemExit(f"predict: {e}") from None
+    elif args.command == "experiment":
+        from premodel.experiments import shrinkage
+        shrinkage.run()
     elif args.command in ("wallet", "commit", "verify", "audit", "reveal", "score"):
         {"wallet": cmd_wallet, "commit": cmd_commit, "verify": cmd_verify,
          "audit": cmd_audit, "reveal": cmd_reveal, "score": cmd_score}[args.command](args)

@@ -42,10 +42,19 @@ class DCParams:
 
 @dataclass(frozen=True)
 class Shrinkage:
-    """Penalty lam * sum((att - m_att)^2 + (dfn - m_dfn)^2); prior: team -> (m_att, m_dfn),
-    teams not listed are shrunk toward (0, 0)."""
+    """Penalty lam * sum((att - m_att)^2 + (dfn - m_dfn)^2); prior: team -> (m_att, m_dfn).
+
+    Teams not in `prior` are shrunk toward (0, 0), or not penalised at all if only_prior
+    (the "promoted-only" variant)."""
     lam: float
     prior: dict = field(default_factory=dict)
+    only_prior: bool = False
+
+    def weights_and_means(self, teams: list) -> tuple[np.ndarray, np.ndarray]:
+        w = np.array([self.lam if (t in self.prior or not self.only_prior) else 0.0
+                      for t in teams], dtype=float)
+        means = np.array([self.prior.get(t, (0.0, 0.0)) for t in teams], dtype=float)
+        return w, means
 
 
 def _unpack(theta, n):
@@ -102,9 +111,9 @@ def _neg_ll_and_grad(theta, hi, ai, x, y, w, n, shrink_lam=0.0, m_att=None, m_df
     pen = RIDGE * (att @ att + dfn @ dfn) + s * s
     g_att_pen = 2 * RIDGE * att + 2 * s
     g_dfn_pen = 2 * RIDGE * dfn
-    if shrink_lam:  # dc_shrink: pull toward per-team prior means
+    if m_att is not None:  # dc_shrink: pull toward per-team prior means (per-team weight)
         da, dd = att - m_att, dfn - m_dfn
-        pen = pen + shrink_lam * (da @ da + dd @ dd)
+        pen = pen + np.sum(shrink_lam * (da * da + dd * dd))
         g_att_pen = g_att_pen + 2 * shrink_lam * da
         g_dfn_pen = g_dfn_pen + 2 * shrink_lam * dd
 
@@ -135,9 +144,10 @@ def fit(home, away, hg, ag, days_ago, xi, init: DCParams | None = None,
 
     bounds = [(None, None)] * (2 * n + 1) + [(-0.3, 0.3)]
     args = (hi, ai, np.asarray(hg), np.asarray(ag), w, n)
-    if shrink is not None and shrink.lam:
-        means = np.array([shrink.prior.get(t, (0.0, 0.0)) for t in teams], dtype=float)
-        args += (float(shrink.lam), means[:, 0], means[:, 1])
+    if shrink is not None:
+        lam_w, means = shrink.weights_and_means(teams)
+        if lam_w.any():  # all-zero weights: exactly the dc_v1 objective
+            args += (lam_w, means[:, 0], means[:, 1])
     res = minimize(_neg_ll_and_grad, theta0, jac=True, method="L-BFGS-B",
                    args=args, bounds=bounds)
     att, dfn, gamma, rho = _unpack(res.x, n)

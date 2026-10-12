@@ -64,6 +64,36 @@ def test_gradient_with_shrinkage_penalty_matches_numerical():
     assert err < 1e-3
 
 
+def test_gradient_with_per_team_weights_matches_numerical():
+    home, away, hg, ag, _ = simulate_league(n_teams=6, rounds=2)
+    teams, args = args_for(home, away, hg, ag)
+    rng = np.random.default_rng(4)
+    n = len(teams)
+    theta = rng.normal(0, 0.2, 2 * n + 2)
+    theta[-1] = -0.05
+    lam_w = np.where(np.arange(n) < 2, 3.0, 0.0)  # promoted-only: two teams penalised
+    full = args + (lam_w, rng.normal(-0.3, 0.2, n), rng.normal(0.3, 0.2, n))
+    err = check_grad(lambda t: dc._neg_ll_and_grad(t, *full)[0],
+                     lambda t: dc._neg_ll_and_grad(t, *full)[1], theta)
+    assert err < 1e-3
+
+
+def test_promoted_only_penalises_only_listed_teams():
+    w, means = dc.Shrinkage(2.0, {"B": (-0.3, 0.3)}, only_prior=True).weights_and_means(
+        ["A", "B", "C"])
+    assert w.tolist() == [0.0, 2.0, 0.0] and means.tolist()[1] == [-0.3, 0.3]
+    w, _ = dc.Shrinkage(2.0, {"B": (-0.3, 0.3)}).weights_and_means(["A", "B", "C"])
+    assert w.tolist() == [2.0, 2.0, 2.0]
+
+
+def test_promoted_only_with_no_promoted_teams_is_exactly_dc_v1():
+    home, away, hg, ag, _ = simulate_league(n_teams=8, rounds=2)
+    days = np.arange(len(home))[::-1] + 1
+    base = dc.fit(home, away, hg, ag, days, 0.003)
+    same = dc.fit(home, away, hg, ag, days, 0.003, shrink=dc.Shrinkage(8.0, {}, only_prior=True))
+    assert np.array_equal(base.att, same.att) and np.array_equal(base.dfn, same.dfn)
+
+
 def test_lambda_zero_reproduces_dc_v1_fit_exactly():
     home, away, hg, ag, _ = simulate_league(n_teams=8, rounds=2)
     days = np.arange(len(home))[::-1] + 1
@@ -186,3 +216,53 @@ def test_relegated_teams_match_reality_in_every_completed_season():
     for prev, s in zip(seasons, seasons[1:], strict=False):
         actual = sh.season_teams(m, prev) - sh.season_teams(m, s)
         assert set(sh.relegated_teams(m, prev)) == actual, prev
+
+
+# --- evaluation helpers -----------------------------------------------------------------
+
+def test_per_match_rps_averages_to_metrics_rps():
+    from premodel.metrics import rps
+    rng = np.random.default_rng(0)
+    p = rng.dirichlet([2, 1, 2], 50)
+    y = rng.integers(0, 3, 50)
+    assert sh.per_match_rps(p, y).mean() == pytest.approx(rps(p, y))
+
+
+def test_block_bootstrap_resamples_whole_dates():
+    rng = np.random.default_rng(0)
+    dates = np.repeat(np.arange(40), 5)
+    const = sh.block_bootstrap(np.full(200, 0.01), dates, rng, n=200)
+    assert const["ci95"] == pytest.approx([0.01, 0.01]) and const["n_dates"] == 40
+    # a shared per-date shock: date blocks give a wider CI than treating matches as iid
+    shock = np.repeat(rng.normal(0, 1, 40), 5) + rng.normal(0, 0.1, 200)
+    blk = sh.block_bootstrap(shock, dates, rng, n=2000)
+    iid = sh.block_bootstrap(shock, np.arange(200), rng, n=2000)
+    assert (blk["ci95"][1] - blk["ci95"][0]) > 1.5 * (iid["ci95"][1] - iid["ci95"][0])
+
+
+def test_promoted_early_flags_first_ten_games_of_promoted_teams():
+    m = synthetic_seasons()
+    df = m[m.season == "2015/16"]
+    flag = sh.promoted_early(df, m, k=3)
+    new = sh.season_teams(m, "2015/16") - sh.season_teams(m, "2014/15")
+    games = {t: 0 for t in new}
+    expected = []
+    for h, a in zip(df.home, df.away, strict=True):
+        hit = False
+        for t in (h, a):
+            if t in games:
+                games[t] += 1
+                hit |= games[t] <= 3
+        expected.append(hit)
+    assert flag.tolist() == expected and 0 < flag.sum() < len(df)
+    assert not sh.promoted_early(m[m.season == "2014/15"], m).any()
+
+
+def test_choose_uses_candidates_only_and_falls_back_to_dc_v1():
+    row = lambda lam, r: {"lam": lam, "rps": r, "brier": 0, "log_loss": 0}  # noqa: E731
+    curves = {"uniform": [row(0, 0.2), row(1, 0.199), row(2, 0.1995)],
+              "promoted_only": [row(0, 0.2), row(4, 0.1985)],
+              "uniform_zero_prior": [row(0, 0.2), row(8, 0.10)]}  # diagnostic: ignored
+    assert sh.choose(curves) == ("promoted_only", 4)
+    flat = {"uniform": [row(0, 0.2), row(1, 0.21)], "promoted_only": [row(0, 0.2)]}
+    assert sh.choose(flat) == ("dc_v1", 0.0)
