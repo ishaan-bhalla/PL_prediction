@@ -24,10 +24,19 @@ RESULTS = [("Arsenal", "Leeds", 2, 1, (2.0, 3.5, 3.9), "csv"),
 
 
 def payload(rid=RID, fixtures=FIXTURES):
-    return {"round_id": rid, "fixtures": [
-        {"home": h, "away": a, "kickoff_utc": k, "p_home": p[0], "p_draw": p[1],
-         "p_away": p[2], "odds_open": dict(zip(["home", "draw", "away"], o, strict=True)),
-         "odds_source": "market_avg"} for h, a, k, p, o in fixtures]}
+    """A schema v1 round with exactly the key structure of the real round E0-2026-10-12
+    (the first live round, committed with dc_v1), filled with synthetic values."""
+    return {
+        "schema": "premodel/predictions/v1", "round_id": rid, "model": "dixon-coles",
+        "model_version": "0.1.0", "git_commit": "0" * 40, "git_dirty": False, "xi": 0.003,
+        "lookback_days": 1095, "generated_at": "2026-10-16T09:00:00Z",
+        "stale_override": False, "staleness_check": "api_completeness",
+        "training": {"n_matches": 1100, "first_match_date": "2023-10-18",
+                     "last_match_date": "2026-10-11", "n_api_rows": 0},
+        "fixtures": [
+            {"home": h, "away": a, "kickoff_utc": k, "p_home": p[0], "p_draw": p[1],
+             "p_away": p[2], "odds_open": dict(zip(["home", "draw", "away"], o, strict=True)),
+             "odds_source": "market_avg"} for h, a, k, p, o in fixtures]}
 
 
 def write_round(d, data, commit=True):
@@ -121,12 +130,12 @@ def test_score_matches_metrics_on_three_matches_with_a_postponed_one(env, capsys
     open_ = score_all(devig(df[["open_h", "open_d", "open_a"]].to_numpy()), y)
     close = score_all(devig(df[["close_h", "close_d", "close_a"]].to_numpy()), y)
     for m in tr.METRICS:
-        assert row[f"{m}_model"] == pytest.approx(model[m], abs=1e-6)
+        assert row[f"{m}_dc_v1"] == pytest.approx(model[m], abs=1e-6)
         assert row[f"{m}_open"] == pytest.approx(open_[m], abs=1e-6)
         assert row[f"{m}_close"] == pytest.approx(close[m], abs=1e-6)
     sim = backtest.simulate_bets(df, 0.0, np.random.default_rng(0))
-    assert row.n_bets == sim["n_bets"] == 2
-    assert row.mean_clv == pytest.approx(sim["mean_clv"], abs=1e-6)
+    assert row.n_bets_dc_v1 == sim["n_bets"] == 2
+    assert row.mean_clv_dc_v1 == pytest.approx(sim["mean_clv"], abs=1e-6)
     assert (row.n_fixtures, row.n_scored, row.n_unscored, row.clv_pending) == (3, 2, 1, 0)
     assert row.signature == f"sig-{RID}" and row.first_kickoff_utc == "2026-10-17T11:30:00Z"
     out = capsys.readouterr().out
@@ -155,17 +164,18 @@ def test_clv_pending_when_closing_odds_are_missing_then_filled(env, capsys):
     api_only = [RESULTS[0], ("Hull", "Everton", 1, 1, None, "api")]  # CSV has not caught up
     row = score(env, results_df(api_only)).iloc[0]
     df, y = expected_frame()
-    assert row.rps_model == pytest.approx(score_all(df[["p_h", "p_d", "p_a"]].to_numpy(),
+    assert row.rps_dc_v1 == pytest.approx(score_all(df[["p_h", "p_d", "p_a"]].to_numpy(),
                                                     y)["rps"], abs=1e-6)
     assert not np.isnan(row.rps_open)
-    assert np.isnan(row.rps_close) and np.isnan(row.mean_clv)
-    assert row.clv_pending == 1 and row.n_bets == 2
+    assert np.isnan(row.rps_close) and np.isnan(row.mean_clv_dc_v1)
+    assert row.clv_pending == 1 and row.n_bets_dc_v1 == 2
     line = env["csv"].read_text().splitlines()[1]
-    assert ",,1," in line  # blank mean_clv, then clv_pending
+    assert ",2,,,,1," in line  # n_bets_dc_v1, blank CLV, blank dc_joint, clv_pending
     assert "1 awaiting closing odds" in capsys.readouterr().out
 
     row = score(env, results_df()).iloc[0]  # CSV caught up
-    assert row.clv_pending == 0 and not np.isnan(row.rps_close) and not np.isnan(row.mean_clv)
+    assert row.clv_pending == 0 and not np.isnan(row.rps_close) \
+        and not np.isnan(row.mean_clv_dc_v1)
 
 
 def test_score_only_reads_revealed_rounds_and_checks_their_hash(env):
@@ -189,7 +199,8 @@ def test_summary_pools_matches_across_rounds(env, capsys):
 
 
 def test_bets_skip_matches_without_open_odds():
-    df = pd.DataFrame({"p_h": [0.9], "p_d": [0.05], "p_a": [0.05], "open_h": [np.nan],
+    df = pd.DataFrame({"p_h_dc_v1": [0.9], "p_d_dc_v1": [0.05], "p_a_dc_v1": [0.05],
+                       "open_h": [np.nan],
                        "open_d": [np.nan], "open_a": [np.nan], "close_h": [2.0],
                        "close_d": [3.0], "close_a": [4.0]})
     assert tr.bets(df).empty

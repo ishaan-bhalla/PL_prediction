@@ -1,4 +1,4 @@
-# Prem_prediction — project context for Claude
+# PL_prediction — project context for Claude
 
 ## What this is
 Premier League match-outcome forecasting (home/draw/away), benchmarked against

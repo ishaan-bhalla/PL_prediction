@@ -26,21 +26,34 @@ from premodel.commitment import (
     PRED_FILE,
     SALT_FILE,
     compute_commitment,
+    fixture_probs,
     format_time,
     kickoffs,
+    primary_model,
     read_salt,
 )
 from premodel.data import devig, season_of
 from premodel.metrics import score_all
+from premodel.stats import date_block_bootstrap
 
 ROUND_FILES = (PRED_FILE, SALT_FILE, COMMIT_FILE)
 METRICS = ("rps", "brier", "log_loss")
-SOURCES = ("model", "open", "close")
-COLUMNS = (["round_id", "first_kickoff_utc", "n_fixtures", "n_scored", "n_unscored"]
+MODELS = ("dc_v1", "dc_joint")            # columns exist for both; v1 rounds fill dc_v1 only
+SOURCES = (*MODELS, "open", "close")
+COLUMNS = (["round_id", "schema", "primary_model", "first_kickoff_utc", "n_fixtures",
+            "n_scored", "n_unscored"]
            + [f"{m}_{s}" for m in METRICS for s in SOURCES]
-           + ["n_bets", "mean_clv", "clv_pending", "signature", "scored_at"])
-P_COLS, OPEN_COLS, CLOSE_COLS = ["p_h", "p_d", "p_a"], ["open_h", "open_d", "open_a"], \
-    ["close_h", "close_d", "close_a"]
+           + [f"{k}_{mdl}" for mdl in MODELS for k in ("n_bets", "mean_clv")]
+           + ["clv_pending", "signature", "scored_at"])
+# track_record.csv written before schema v2 (one model, "model" columns) -> current names
+LEGACY_COLUMNS = {"rps_model": "rps_dc_v1", "brier_model": "brier_dc_v1",
+                  "log_loss_model": "log_loss_dc_v1", "n_bets": "n_bets_dc_v1",
+                  "mean_clv": "mean_clv_dc_v1"}
+OPEN_COLS, CLOSE_COLS = ["open_h", "open_d", "open_a"], ["close_h", "close_d", "close_a"]
+
+
+def p_cols(model: str) -> list[str]:
+    return [f"p_h_{model}", f"p_d_{model}", f"p_a_{model}"]
 
 
 class RevealRefused(RuntimeError):
@@ -94,34 +107,37 @@ def reveal_round(round_dir: Path, now: datetime, revealed_dir: Path = config.REV
 # --- score ------------------------------------------------------------------------------
 
 def round_frame(round_dir: Path, results: pd.DataFrame) -> pd.DataFrame:
-    """One row per committed fixture: committed probabilities and open odds, plus the
-    result and closing odds where known (matched on season, home, away)."""
+    """One row per committed fixture: every committed model's probabilities (schema v1:
+    dc_v1 only; v2: dc_joint and dc_v1) and the open odds, plus the result and closing
+    odds where known (matched on season, home, away)."""
     pred = json.loads((round_dir / PRED_FILE).read_bytes())
     rows = []
-    for f in pred["fixtures"]:
+    for f, probs in zip(pred["fixtures"], fixture_probs(pred), strict=True):
         kickoff = pd.Timestamp(f["kickoff_utc"])
         odds = f["odds_open"] or {}
-        rows.append({
-            "round_id": round_dir.name, "home": f["home"], "away": f["away"],
-            "kickoff_utc": kickoff,
-            "season": season_of(kickoff.tz_convert(config.KICKOFF_TZ)),
-            "p_h": f["p_home"], "p_d": f["p_draw"], "p_a": f["p_away"],
-            "open_h": odds.get("home", np.nan), "open_d": odds.get("draw", np.nan),
-            "open_a": odds.get("away", np.nan),
-        })
+        row = {"round_id": round_dir.name, "schema": pred["schema"],
+               "primary_model": primary_model(pred),
+               "home": f["home"], "away": f["away"], "kickoff_utc": kickoff,
+               "season": season_of(kickoff.tz_convert(config.KICKOFF_TZ)),
+               "open_h": odds.get("home", np.nan), "open_d": odds.get("draw", np.nan),
+               "open_a": odds.get("away", np.nan)}
+        for mdl in MODELS:
+            row |= dict(zip(p_cols(mdl), probs.get(mdl, (np.nan,) * 3), strict=True))
+        rows.append(row)
     fx = pd.DataFrame(rows)
     res = results.drop_duplicates(["season", "home", "away"], keep="first")
-    res = res.reindex(columns=["season", "home", "away", "result", *CLOSE_COLS])
+    res = res.reindex(columns=["season", "home", "away", "date", "result", *CLOSE_COLS])
     return fx.merge(res, on=["season", "home", "away"], how="left", validate="one_to_one")
 
 
-def bets(df: pd.DataFrame, threshold: float = 0.0) -> pd.DataFrame:
-    """The backtest rule: at most one bet per match, on the best edge at the committed open
-    odds if it exceeds `threshold`; CLV = open odds x de-vigged close - 1 (NaN if no close)."""
-    df = df[df[OPEN_COLS].notna().all(axis=1)]
+def bets(df: pd.DataFrame, model: str = "dc_v1", threshold: float = 0.0) -> pd.DataFrame:
+    """The backtest rule for one model: at most one bet per match, on the best edge at the
+    committed open odds if it exceeds `threshold`; CLV = open odds x de-vigged close - 1
+    (NaN if no close)."""
+    df = df[df[OPEN_COLS].notna().all(axis=1) & df[p_cols(model)].notna().all(axis=1)]
     if df.empty:
         return pd.DataFrame(columns=["pick", "odds", "clv"])
-    p, odds = df[P_COLS].to_numpy(), df[OPEN_COLS].to_numpy()
+    p, odds = df[p_cols(model)].to_numpy(), df[OPEN_COLS].to_numpy()
     edge = p * odds - 1
     pick = edge.argmax(axis=1)
     r = np.arange(len(df))
@@ -140,20 +156,27 @@ def _metrics(p: np.ndarray, y: np.ndarray) -> dict:
 
 
 def score_frame(df: pd.DataFrame) -> dict:
-    """Metrics for the scored rows of a round_frame (or several pooled)."""
+    """Metrics for the scored rows of a round_frame. A model without probabilities in this
+    round (dc_joint in a schema v1 round) gets blank columns."""
     s = df[df.result.notna()]
     y = s.result.to_numpy(dtype=int)
     has_open = s[OPEN_COLS].notna().all(axis=1).to_numpy()
     has_close = s[CLOSE_COLS].notna().all(axis=1).to_numpy()
-    out = {f"{m}_model": v for m, v in _metrics(s[P_COLS].to_numpy(), y).items()}
+    out = {}
+    for mdl in MODELS:
+        present = len(s) and s[p_cols(mdl)].notna().all(axis=1).all()
+        vals = _metrics(s[p_cols(mdl)].to_numpy(), y) if present else \
+            dict.fromkeys(METRICS, np.nan)
+        out |= {f"{m}_{mdl}": v for m, v in vals.items()}
+        b = bets(s, mdl) if present else pd.DataFrame(columns=["clv"])
+        out[f"n_bets_{mdl}"] = len(b) if present else np.nan
+        out[f"mean_clv_{mdl}"] = (float(b.clv.mean()) if len(b) and b.clv.notna().all()
+                                  else np.nan)
     for src, cols, ok in (("open", OPEN_COLS, has_open), ("close", CLOSE_COLS, has_close)):
         vals = (_metrics(devig(s[cols].to_numpy()), y) if ok.all() and len(s)
                 else dict.fromkeys(METRICS, np.nan))
         out |= {f"{m}_{src}": v for m, v in vals.items()}
-    b = bets(s)
-    out["n_bets"] = len(b)
     out["clv_pending"] = int((~has_close).sum())
-    out["mean_clv"] = float(b.clv.mean()) if len(b) and b.clv.notna().all() else np.nan
     return out
 
 
@@ -170,6 +193,8 @@ def score_round(round_dir: Path, results: pd.DataFrame, now: datetime) -> RoundS
     scored = df.result.notna()
     row = {
         "round_id": round_dir.name,
+        "schema": df.schema.iloc[0],
+        "primary_model": df.primary_model.iloc[0],
         "first_kickoff_utc": format_time(df.kickoff_utc.min().to_pydatetime()),
         "n_fixtures": len(df), "n_scored": int(scored.sum()),
         "n_unscored": int((~scored).sum()),
@@ -193,11 +218,22 @@ def revealed_rounds(revealed_dir: Path = config.REVEALED_DIR,
     return sorted(d for d in revealed_dir.glob("*") if (d / COMMIT_FILE).exists())
 
 
+def read_track_record(path: Path) -> pd.DataFrame:
+    """The CSV with current column names (files from before schema v2 are mapped)."""
+    old = pd.read_csv(path, dtype={"signature": str})
+    old = old.rename(columns=LEGACY_COLUMNS)
+    if "schema" not in old:
+        old["schema"] = "premodel/predictions/v1"
+    if "primary_model" not in old:
+        old["primary_model"] = "dc_v1"
+    return old.reindex(columns=COLUMNS)
+
+
 def update_track_record(rows: list[dict], path: Path) -> pd.DataFrame:
     """Replace (or add) each round's row; keep the others."""
     new = pd.DataFrame(rows, columns=COLUMNS)
     if path.exists():
-        old = pd.read_csv(path, dtype={"signature": str})
+        old = read_track_record(path)
         new = pd.concat([old[~old.round_id.isin(new.round_id)], new], ignore_index=True)
     new = new.sort_values("round_id").reset_index(drop=True)[COLUMNS]
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -205,9 +241,78 @@ def update_track_record(rows: list[dict], path: Path) -> pd.DataFrame:
     return new
 
 
-def summary(frames: list[pd.DataFrame]) -> str:
-    """Pooled over every scored match: model vs open on matches with open odds, and model
-    vs close on matches with closing odds, so each comparison uses the same matches."""
+# --- head-to-head (schema v2) -----------------------------------------------------------
+
+def new_team_flags(df: pd.DataFrame, results: pd.DataFrame,
+                   k: int = 10) -> np.ndarray:
+    """Evaluation label (not decisive): the match involves a team in its first k E0 games
+    of the season after entering E0 (not in E0 the previous season)."""
+    flags = np.zeros(len(df), dtype=bool)
+    seasons = sorted(results.season.unique())
+    for i, r in enumerate(df.itertuples(index=False)):
+        prev = [x for x in seasons if x < r.season]
+        if not prev:
+            continue
+        p = results[results.season == prev[-1]]
+        before = set(p.home) | set(p.away)
+        cur = results[(results.season == r.season) & (results.date <= r.date)]
+        for t in (r.home, r.away):
+            if t not in before and ((cur.home == t) | (cur.away == t)).sum() <= k:
+                flags[i] = True
+    return flags
+
+
+def head_to_head(frames: list[pd.DataFrame], results: pd.DataFrame) -> dict | None:
+    """Pooled over every scored schema v2 match: RPS(dc_joint) - RPS(dc_v1), with a
+    date-block bootstrap 95% CI; plus the new-team subgroup (non-decisive)."""
+    if not frames:
+        return None
+    a = pd.concat(frames, ignore_index=True)
+    v2 = a[a.schema.str.endswith("/v2") & a.result.notna()
+           & a[p_cols("dc_joint")].notna().all(axis=1)]
+    if v2.empty:
+        return None
+    y = v2.result.to_numpy(dtype=int)
+
+    def rps_each(model):
+        p = v2[p_cols(model)].to_numpy()
+        onehot = np.eye(3)[y]
+        cp, co = np.cumsum(p, axis=1)[:, :2], np.cumsum(onehot, axis=1)[:, :2]
+        return np.sum((cp - co) ** 2, axis=1) / 2
+
+    diff = rps_each("dc_joint") - rps_each("dc_v1")
+    dates = v2.date.to_numpy()
+    new = new_team_flags(v2, results)
+    return {"n": int(len(v2)), "rps_dc_joint": float(rps_each("dc_joint").mean()),
+            "rps_dc_v1": float(rps_each("dc_v1").mean()),
+            "diff": date_block_bootstrap(diff, dates),
+            "new_teams": date_block_bootstrap(diff[new], dates[new]),
+            "last_kickoff": v2.kickoff_utc.max(),
+            "unscored_before_season_end": int(
+                (a.schema.str.endswith("/v2") & a.result.isna()
+                 & (a.kickoff_utc < pd.Timestamp(config.LIVE_EVALUATION["season_end"],
+                                                 tz="UTC") + pd.Timedelta(days=1))).sum())}
+
+
+def evaluation_status(h2h: dict | None, rule: dict = config.LIVE_EVALUATION) -> str:
+    """The pre-registered live rule: not yet due / keep dc_joint / revert to dc_v1."""
+    n = h2h["n"] if h2h else 0
+    end = pd.Timestamp(rule["season_end"], tz="UTC")
+    season_done = bool(h2h) and h2h["last_kickoff"] >= end \
+        and h2h["unscored_before_season_end"] == 0
+    if n < rule["min_v2_matches"] or not season_done:
+        return (f"not yet due ({n} of {rule['min_v2_matches']} schema-v2 matches scored; "
+                f"season end {rule['season_end']} {'reached' if season_done else 'not reached'})")
+    lo, hi = h2h["diff"]["ci95"]
+    if lo > 0:
+        return f"DUE: revert the primary model to dc_v1 (95% CI [{lo:+.4f}, {hi:+.4f}] > 0)"
+    return f"DUE: keep dc_joint (95% CI [{lo:+.4f}, {hi:+.4f}] not entirely above 0)"
+
+
+def summary(frames: list[pd.DataFrame], results: pd.DataFrame | None = None) -> str:
+    """Pooled over every scored match: each model vs the open market on matches with open
+    odds, and vs the close on matches with closing odds (same matches per comparison);
+    then the dc_joint vs dc_v1 head-to-head over schema v2 matches."""
     if not frames:
         return "no revealed rounds scored yet"
     all_ = pd.concat(frames, ignore_index=True)
@@ -216,23 +321,38 @@ def summary(frames: list[pd.DataFrame]) -> str:
              f"{len(all_) - len(s)} unscored"]
     head = f"  {'':<14}{'n':>5}{'RPS':>10}{'Brier':>10}{'log-loss':>10}"
     for src, cols in (("open", OPEN_COLS), ("close", CLOSE_COLS)):
-        sub = s[s[cols].notna().all(axis=1)]
         lines += [f" matches with {src} odds", head]
-        if sub.empty:
-            lines.append("  (none yet)")
-            continue
-        y = sub.result.to_numpy(dtype=int)
-        for name, p in (("model", sub[P_COLS].to_numpy()),
-                        (f"market {src}", devig(sub[cols].to_numpy()))):
-            m = score_all(p, y)
-            lines.append(f"  {name:<14}{len(sub):>5}{m['rps']:>10.4f}{m['brier']:>10.4f}"
-                         f"{m['log_loss']:>10.4f}")
-    b = bets(s)
-    done = b[b.clv.notna()]
-    lines.append(f"  bets (edge > 0 at open odds): {len(b)}; mean CLV "
-                 + (f"{done.clv.mean():+.2%} over {len(done)}" if len(done) else "n/a")
-                 + (f"; {len(b) - len(done)} awaiting closing odds" if len(done) < len(b)
-                    else ""))
+        for mdl in MODELS:
+            sub = s[s[cols].notna().all(axis=1) & s[p_cols(mdl)].notna().all(axis=1)]
+            if sub.empty:
+                continue
+            y = sub.result.to_numpy(dtype=int)
+            for name, p in ((mdl, sub[p_cols(mdl)].to_numpy()),
+                            (f"market {src}", devig(sub[cols].to_numpy()))):
+                m = score_all(p, y)
+                lines.append(f"  {name:<14}{len(sub):>5}{m['rps']:>10.4f}"
+                             f"{m['brier']:>10.4f}{m['log_loss']:>10.4f}")
+    for mdl in MODELS:
+        b = bets(s, mdl)
+        done = b[b.clv.notna()]
+        if len(b):
+            lines.append(f"  {mdl} bets (edge > 0 at open odds): {len(b)}; mean CLV "
+                         + (f"{done.clv.mean():+.2%} over {len(done)}" if len(done) else "n/a")
+                         + (f"; {len(b) - len(done)} awaiting closing odds"
+                            if len(done) < len(b) else ""))
+    h2h = head_to_head(frames, results if results is not None else s)
+    lines.append(" head-to-head on schema v2 matches: RPS(dc_joint) - RPS(dc_v1)")
+    if h2h is None:
+        lines.append("  (no scored schema v2 matches yet)")
+    else:
+        d, nt = h2h["diff"], h2h["new_teams"]
+        lines.append(f"  all       n={h2h['n']:<5} {d['mean']:+.4f}  95% CI "
+                     f"[{d['ci95'][0]:+.4f}, {d['ci95'][1]:+.4f}]")
+        lines.append(f"  new teams n={nt['n_matches']:<5} "
+                     + (f"{nt['mean']:+.4f}  95% CI [{nt['ci95'][0]:+.4f}, {nt['ci95'][1]:+.4f}]"
+                        if nt["n_matches"] else "-")
+                     + "  (first 10 games after entering E0; non-decisive)")
+    lines.append(f" live evaluation rule: {evaluation_status(h2h)}")
     return "\n".join(lines)
 
 
@@ -250,13 +370,15 @@ def run_score(results: pd.DataFrame, now: datetime, round_id: str | None = None,
         r = sc.row
         if r["round_id"] not in chosen:
             continue
-        print(f"{r['round_id']}: scored {r['n_scored']}/{r['n_fixtures']}  "
-              f"rps model {r['rps_model']:.4f}"
+        rps = "  ".join(f"{m} {r[f'rps_{m}']:.4f}" for m in MODELS
+                        if not np.isnan(r[f"rps_{m}"]))
+        print(f"{r['round_id']} ({r['schema'].rsplit('/', 1)[-1]}): scored "
+              f"{r['n_scored']}/{r['n_fixtures']}  rps {rps}"
               + (f"  close {r['rps_close']:.4f}" if not np.isnan(r["rps_close"]) else "")
               + (f"  clv_pending {r['clv_pending']}" if r["clv_pending"] else ""))
         for u in sc.unscored:
             print(f"  skipped (no result yet): {u}")
     table = update_track_record([sc.row for sc in scores if sc.row["round_id"] in chosen],
                                 path)
-    print(summary([sc.frame for sc in scores]))
+    print(summary([sc.frame for sc in scores], results))
     return table

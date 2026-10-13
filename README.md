@@ -139,7 +139,7 @@ Analysis notes with decision rules set in advance (any deviation is disclosed in
 ## Project structure
 
 ```
-Prem_prediction/
+PL_prediction/
 ├── data/
 │   ├── raw/                 # football-data.co.uk CSVs (git-ignored; `make data`)
 │   └── processed/           # regenerated outputs, e.g. test_predictions.csv
