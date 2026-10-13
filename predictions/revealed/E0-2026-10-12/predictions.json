@@ -1,0 +1,35 @@
+{
+  "fixtures": [
+    {
+      "away": "Newcastle",
+      "home": "Coventry",
+      "kickoff_utc": "2026-10-12T19:00:00Z",
+      "odds_open": {
+        "away": 2.080000,
+        "draw": 3.580000,
+        "home": 3.250000
+      },
+      "odds_source": "market_avg",
+      "p_away": 0.718649,
+      "p_draw": 0.230568,
+      "p_home": 0.050783
+    }
+  ],
+  "generated_at": "2026-10-12T06:40:44Z",
+  "git_commit": "5c125824b6139c494c00f0c5e504e5e0bd7b424d",
+  "git_dirty": false,
+  "lookback_days": 1095,
+  "model": "dixon-coles",
+  "model_version": "0.1.0",
+  "round_id": "E0-2026-10-12",
+  "schema": "premodel/predictions/v1",
+  "stale_override": false,
+  "staleness_check": "api_completeness",
+  "training": {
+    "first_match_date": "2023-10-21",
+    "last_match_date": "2026-10-11",
+    "n_api_rows": 9,
+    "n_matches": 1119
+  },
+  "xi": 0.003000
+}

@@ -1,0 +1,2 @@
+round_id,first_kickoff_utc,n_fixtures,n_scored,n_unscored,rps_model,rps_open,rps_close,brier_model,brier_open,brier_close,log_loss_model,log_loss_open,log_loss_close,n_bets,mean_clv,clv_pending,signature,scored_at
+E0-2026-10-12,2026-10-12T19:00:00Z,1,1,0,0.708735,0.354721,0.383712,1.470631,0.777874,0.831870,2.980194,1.244247,1.321374,1,-0.002908,0,BV9reQ3gGKQz3bRhjhZTw8Cgci7koBAZp9NtUEUEHKfSKGw5RjjxuTw3p1dB4LKeX3yL6TfgBjoLLLXbxhatwxq,2026-10-13T03:04:24Z
