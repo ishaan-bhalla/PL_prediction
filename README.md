@@ -47,27 +47,42 @@ baseline any richer model (xG, Elo, lineups) has to beat.
 
 ## Verifiable track record
 
-Backtests are easy to overfit, so the model also makes live forecasts whose
+Backtests are easy to overfit, so the models also make live forecasts whose
 timing anyone can check. Before each round, a hash of the predictions is posted
 on Solana **devnet** via the Memo program; after the round, the predictions are
 revealed in [`predictions/revealed/`](predictions/revealed/) and scored. A
 forecast cannot be edited after kickoff, and a bad week cannot be quietly
 dropped.
 
+Since model version 0.2.0, every round commits **two models in one file**: the
+primary, `dc_joint` (the [joint E0/E1/E2 model](reports/experiments/joint/README.md)),
+and `dc_v1` (the original Premier-League-only model) as a shadow. One commitment
+covers both, so each round is also a live, out-of-sample head-to-head (see
+"Live model" below). The first live round, `E0-2026-10-12`, predates this and holds
+`dc_v1` only.
+
 Canonical signer: [`EKjxGc617c1YqVYGPGGNZutuLcHHnoEGR1Ku5iFjJSxo`](https://explorer.solana.com/address/EKjxGc617c1YqVYGPGGNZutuLcHHnoEGR1Ku5iFjJSxo?cluster=devnet)
 (only memos from this address count).
 
 **Weekly workflow** (`make setup` installs the Solana packages)
 
-1. `make predict`: refresh data, fit on matches strictly before the round, write
-   `predictions/pending/<round>/predictions.json`. Refuses if training data is
-   incomplete against the football-data.org schedule.
+1. `make predict`: refresh the data and fit both models on matches strictly
+   before the round's first kickoff date, then write
+   `predictions/pending/<round>/predictions.json`.
+   - **Premier League (E0):** season CSV plus football-data.org results. Refuses if
+     the training data is incomplete against the football-data.org schedule.
+   - **Championship (E1):** season CSV plus football-data.org results, used by
+     `dc_joint`. If incomplete, prints a warning but does not block.
+   - **League One (E2):** season CSV only, which lags a few days; its last match
+     date is recorded.
 2. `make commit`: before the first kickoff, post the commitment memo. Refuses
    after kickoff, on uncommitted code changes, or on any non-devnet RPC.
 3. `make reveal`: from last kickoff + 3h, move the round to
    `predictions/revealed/<round>/` and commit it to git.
-4. `make score`: score revealed rounds (RPS, Brier, log-loss for model vs open
-   and closing market; CLV) into `predictions/track_record.csv`.
+4. `make score`: score revealed rounds into `predictions/track_record.csv`: RPS,
+   Brier and log-loss for each model and for the open and closing market, plus
+   CLV per model. The printed summary adds the pooled `dc_joint` vs `dc_v1`
+   head-to-head and the status of the live evaluation rule.
 
 **The commitment.** `salt.hex` holds 32 random bytes, kept private until reveal
 so the hash gives nothing away. The commitment is
@@ -76,10 +91,22 @@ canonical JSON (sorted keys, fixed float format), so the bytes are reproducible.
 The memo text is `premodel:v1:<round_id>:<commitment>`. `premodel-test:` memos
 are dry runs and are ignored.
 
+**What a round file holds (schema v2).** Each fixture has `probs` with one block
+per model, `{"dc_joint": {p_home, p_draw, p_away}, "dc_v1": {...}}`. Probabilities
+are stored in millionths, so each model's three sum to exactly 1. The file also
+records:
+- `primary_model`;
+- each model's version, decay ξ and training summary (per league for `dc_joint`);
+- the live evaluation rule;
+- data notes such as Championship completeness and League One's last match date.
+
+Schema v1 rounds have a single `p_home/p_draw/p_away` per fixture (`dc_v1`).
+The memo format is the same for both schemas.
+
 **Verify a round yourself.** Clone the repo, `pip install -e ".[onchain]"`, then:
 
 ```bash
-python -m premodel verify --round E0-2026-10-17   # PASS, or FAIL: <reason>
+python -m premodel verify --round E0-2026-10-12   # PASS, or FAIL: <reason>
 ```
 
 This recomputes the hash from the revealed files and checks it against the
@@ -90,7 +117,7 @@ compare it with the memo shown on Explorer (the link is in the round's
 `commit.json`):
 
 ```bash
-d=predictions/revealed/E0-2026-10-17
+d=predictions/revealed/E0-2026-10-12
 python -c "import hashlib; print(hashlib.sha256(bytes.fromhex(open('$d/salt.hex').read().strip()) + open('$d/predictions.json','rb').read()).hexdigest())"
 ```
 
@@ -102,6 +129,44 @@ reveal should be read as a hidden bad forecast.
 
 Caveats: this is devnet, not mainnet, so it proves timing and integrity rather
 than economic stake. Block times are validator estimates (seconds of drift).
+
+### Live model: what was adopted and why
+
+**Adopted (model version 0.2.0, from the round after `E0-2026-10-12`).**
+- **Primary:** `dc_joint`, the plain variant with ξ = 0.005, exactly as selected in
+  the [joint experiment](reports/experiments/joint/README.md). It is one rating per
+  team across the Premier League, Championship and League One, so a promoted or
+  relegated team keeps its history.
+- **Shadow:** `dc_v1`, unchanged (ξ = 0.003). It is committed in the same file.
+
+**Why.**
+- **In the backtest,** `dc_joint` improved Championship forecasts (RPS −0.0031,
+  95% CI −0.0044 to −0.0019) and matches involving newly arrived teams (−0.0152,
+  CI −0.0243 to −0.0065). There was **no detectable change in the Premier League**
+  (−0.0001, CI −0.0016 to +0.0014), and **no edge over the market** either way.
+- **In the first live round,** `dc_v1` gave promoted Coventry a 5% chance at home to
+  Newcastle; `dc_joint`, refitted on the same data, gave 31%, against the market's
+  29%. That is one match, not evidence, but it is the failure the model targets.
+
+**Disclosure.** The joint experiment's decision rules were fixed before its run,
+but **no adoption rule was**. This adoption decision was made *after* seeing the
+experiment's results.
+
+**Pre-registered live evaluation rule** (written into `config.LIVE_EVALUATION`
+and every schema v2 round file before any v2 match was played).
+- **When:** once at least 150 schema v2 matches are scored *and* the last
+  2026/27 Premier League fixture (season end 2027-05-30) is scored, whichever
+  comes later.
+- **Rule:** if the 95% CI of RPS(`dc_joint`) − RPS(`dc_v1`) on those live
+  matches (paired bootstrap over match dates) lies entirely **above** 0, `dc_joint`
+  is worse and the primary model reverts to `dc_v1`. Otherwise `dc_joint` stays.
+- **Reporting:** the result is reported either way. `make score` prints the
+  rule's status every week. Reverting would be a manual config change.
+- **Power:** this rule is deliberately weak. At about 150 matches the CI
+  half-width is roughly ±0.007 RPS, against ±0.0015 on the 3,090-match backtest.
+  So it can only catch a large deterioration and **cannot confirm an
+  improvement**. The running summary also shows newly arrived teams' first 10
+  Premier League games as a subgroup, but that is not part of the rule.
 
 ## Experiments
 
@@ -152,14 +217,16 @@ PL_prediction/
 │   ├── config.py            # paths, splits, decay grid, thresholds
 │   ├── data.py              # download, load, de-vig
 │   ├── metrics.py           # RPS, Brier, log-loss, calibration
-│   ├── models/dixon_coles.py
+│   ├── models/              # dixon_coles.py (dc_v1), dixon_coles_joint.py (dc_joint)
 │   ├── backtest.py          # walk-forward, betting sim, CLV
 │   ├── plots.py
 │   ├── forward.py           # weekly predictions for upcoming fixtures
-│   ├── results.py           # football-data.org results fallback
+│   ├── results.py           # football-data.org results (Premier League, Championship)
 │   ├── commitment.py        # canonical JSON, commitment, verify, audit
 │   ├── onchain.py           # Solana devnet client (only module using solana)
-│   ├── track_record.py      # reveal + score
+│   ├── track_record.py      # reveal + score, dc_joint vs dc_v1 head-to-head
+│   ├── stats.py             # date-block bootstrap
+│   ├── experiments/         # shrinkage, championship, joint (see Experiments)
 │   └── __main__.py          # CLI: python -m premodel <command>
 ├── tests/                   # model, metrics, and no-leakage tests
 ├── Makefile

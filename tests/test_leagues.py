@@ -64,11 +64,17 @@ def test_e1_coverage_has_full_seasons():
 @pytest.mark.slow
 @needs["E0"]
 def test_e0_backtest_reproduces_published_outputs_byte_for_byte(tmp_path, monkeypatch):
-    """Opt-in (`pytest -m slow`, ~15 s): re-run the whole E0 backtest into a temp dir."""
-    m = data.load_matches()
-    if m.date.max() > ch.TEST_END:
-        pytest.skip("E0 data now extends past the published test set; outputs legitimately "
-                    "differ")
+    """Opt-in (`pytest -m slow`, ~10 s): re-run the whole E0 backtest into a temp dir on the
+    published window (matches up to 2026-09-20), so it stays runnable as the CSV grows.
+    It would fail only if football-data.co.uk revised rows inside that window."""
+    real = data.load_matches
+
+    def pinned(*a, **k):
+        m = real(*a, **k)
+        return m[m.date <= ch.TEST_END].reset_index(drop=True)
+
+    assert len(pinned()) == 4610  # the published data set: 3,090 test matches + history
+    monkeypatch.setattr(backtest, "load_matches", pinned)
     monkeypatch.setattr(config, "REPORTS_DIR", tmp_path / "reports")
     monkeypatch.setattr(config, "PROCESSED_DIR", tmp_path / "processed")
     backtest.run()
@@ -79,4 +85,4 @@ def test_e0_backtest_reproduces_published_outputs_byte_for_byte(tmp_path, monkey
         assert (tmp_path / "processed" / "test_predictions.csv").read_bytes() == \
             saved.read_bytes()
     assert json.loads(published.read_text())["n_test_matches"] == 3090
-    pd.testing.assert_frame_equal(m, data.load_matches(league="E0"))
+    pd.testing.assert_frame_equal(real(), data.load_matches(league="E0"))
