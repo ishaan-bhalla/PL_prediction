@@ -6,14 +6,29 @@ the betting market. A CV portfolio project: rigor and honesty matter more than
 flashy claims. Owner: Ishaan (MSc Data Science, Bristol).
 
 ## Layout
-- `src/premodel/` — package. `config.py` (paths, splits, constants), `data.py`
-  (download/load/devig), `metrics.py` (RPS, Brier, log-loss, calibration),
-  `models/dixon_coles.py`, `backtest.py` (walk-forward + betting sim + CLV),
-  `plots.py`, `__main__.py` (CLI: `python -m premodel <cmd>`)
-- `data/raw/` — football-data.co.uk `E0_<code>.csv` files (git-ignored)
-- `data/processed/` — regenerated outputs (git-ignored)
-- `reports/` — `summary.json` + `figures/` (committed)
-- `tests/` — pytest
+- `src/premodel/` — package.
+  - Core: `config.py` (paths, splits, constants, live-model settings), `data.py`
+    (download/load/devig, `league=` E0/E1/E2), `metrics.py` (RPS, Brier,
+    log-loss, calibration), `stats.py` (date-block bootstrap), `plots.py`,
+    `__main__.py` (CLI: `python -m premodel <cmd>`).
+  - Models: `models/dixon_coles.py` (dc_v1), `models/dixon_coles_joint.py`
+    (dc_joint: one rating per team across E0/E1/E2).
+  - Backtest: `backtest.py` (dc_v1 walk-forward + betting sim + CLV).
+  - Live pipeline: `forward.py` (predict both models, schema v2),
+    `results.py` (football-data.org PL + Championship results), `commitment.py`
+    (canonical JSON, commit/verify/audit, `fixture_probs` for v1/v2),
+    `onchain.py` (only solana/solders importer), `track_record.py` (reveal,
+    score, dc_joint vs dc_v1 head-to-head).
+  - `experiments/` — shrinkage, championship, joint; each writes
+    `reports/experiments/<name>/` (summary.json, figure, README note).
+- `data/raw/` — football-data.co.uk `E0/E1/E2_<code>.csv` + `fixtures.csv`
+  (git-ignored)
+- `data/processed/` — regenerated outputs and API caches (git-ignored)
+- `reports/` — `summary.json` + `figures/` (published dc_v1 backtest) and
+  `experiments/` (committed)
+- `predictions/` — `pending/` (git-ignored until reveal), `revealed/` and
+  `track_record.csv` (committed by Ishaan)
+- `tests/` — pytest; `pytest -m slow` re-runs the E0 backtest byte-for-byte
 
 ## Commands
 - `make setup` / `make test` / `make lint` / `make all` (backtest + plots)
@@ -43,8 +58,23 @@ flashy claims. Owner: Ishaan (MSc Data Science, Bristol).
   attribution lines.
 
 ## Current baseline (test 2018/19–2026/27, 3,090 matches)
-Dixon-Coles RPS 0.2016 vs market closing 0.1955; naive 0.2344. Betting the
-model's edges: CLV ≈ −2.9%, same as random bets → no edge over market.
+dc_v1 (published backtest): RPS 0.2016 vs market closing 0.1955; naive 0.2344.
+Betting the model's edges: CLV ≈ −2.9%, same as random bets → no edge over
+market. Experiments (reports/experiments/): shrinkage gave no detectable RPS
+gain; the Championship market is not softer; dc_joint improves E1 (−0.0031) and
+newly arrived teams (−0.0152), no detectable E0 change, still no market edge.
+
+## Live models (model_version 0.2.0)
+- Primary: dc_joint (plain, xi 0.005, `config.FORWARD_JOINT_XI`, drift-tested
+  against the joint experiment). Shadow: dc_v1 (xi 0.003), unchanged.
+- Every round's `predictions.json` (schema v2) holds both models' probabilities,
+  so one commitment covers both. `E0-2026-10-12` is schema v1 (dc_v1 only).
+- Adoption was decided after seeing the joint experiment's results (disclosed
+  in README). Pre-registered live rule in `config.LIVE_EVALUATION`: after ≥150
+  v2 matches and the 2026/27 season end, revert to dc_v1 only if the 95% CI of
+  RPS(dc_joint) − RPS(dc_v1) is entirely above 0. Low power (≈ ±0.007 RPS).
+- Data for predict: E0 CSV + API (completeness check blocks), E1 CSV + API
+  (warning only), E2 CSV only.
 
 ## Roadmap
 1. Weekly forward pipeline + Solana commit-reveal (verifiable track record)
