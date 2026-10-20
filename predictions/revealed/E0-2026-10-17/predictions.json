@@ -1,0 +1,293 @@
+{
+  "data": {
+    "E1_completeness": {
+      "checked": true,
+      "complete": false,
+      "problems": [
+        "2026-10-16 Burnley v Wolves (TIMED)"
+      ]
+    },
+    "E2_last_match_date": "2026-10-10"
+  },
+  "fixtures": [
+    {
+      "away": "Chelsea",
+      "home": "Everton",
+      "kickoff_utc": "2026-10-17T11:30:00Z",
+      "odds_open": {
+        "away": 2.120000,
+        "draw": 3.620000,
+        "home": 3.130000
+      },
+      "odds_source": "market_avg",
+      "probs": {
+        "dc_joint": {
+          "p_away": 0.341519,
+          "p_draw": 0.254525,
+          "p_home": 0.403956
+        },
+        "dc_v1": {
+          "p_away": 0.348933,
+          "p_draw": 0.282031,
+          "p_home": 0.369036
+        }
+      }
+    },
+    {
+      "away": "Liverpool",
+      "home": "Brentford",
+      "kickoff_utc": "2026-10-17T14:00:00Z",
+      "odds_open": {
+        "away": 2.760000,
+        "draw": 3.620000,
+        "home": 2.340000
+      },
+      "odds_source": "market_avg",
+      "probs": {
+        "dc_joint": {
+          "p_away": 0.290341,
+          "p_draw": 0.257560,
+          "p_home": 0.452099
+        },
+        "dc_v1": {
+          "p_away": 0.338381,
+          "p_draw": 0.266380,
+          "p_home": 0.395239
+        }
+      }
+    },
+    {
+      "away": "Hull",
+      "home": "Fulham",
+      "kickoff_utc": "2026-10-17T14:00:00Z",
+      "odds_open": {
+        "away": 4.510000,
+        "draw": 3.890000,
+        "home": 1.700000
+      },
+      "odds_source": "market_avg",
+      "probs": {
+        "dc_joint": {
+          "p_away": 0.224834,
+          "p_draw": 0.298878,
+          "p_home": 0.476288
+        },
+        "dc_v1": {
+          "p_away": 0.410589,
+          "p_draw": 0.323108,
+          "p_home": 0.266303
+        }
+      }
+    },
+    {
+      "away": "Ipswich",
+      "home": "Man City",
+      "kickoff_utc": "2026-10-17T14:00:00Z",
+      "odds_open": {
+        "away": 10.080000,
+        "draw": 6.470000,
+        "home": 1.240000
+      },
+      "odds_source": "market_avg",
+      "probs": {
+        "dc_joint": {
+          "p_away": 0.056818,
+          "p_draw": 0.126981,
+          "p_home": 0.816201
+        },
+        "dc_v1": {
+          "p_away": 0.037523,
+          "p_draw": 0.092751,
+          "p_home": 0.869726
+        }
+      }
+    },
+    {
+      "away": "Aston Villa",
+      "home": "Newcastle",
+      "kickoff_utc": "2026-10-17T16:30:00Z",
+      "odds_open": {
+        "away": 2.930000,
+        "draw": 3.630000,
+        "home": 2.220000
+      },
+      "odds_source": "market_avg",
+      "probs": {
+        "dc_joint": {
+          "p_away": 0.344672,
+          "p_draw": 0.235843,
+          "p_home": 0.419485
+        },
+        "dc_v1": {
+          "p_away": 0.325353,
+          "p_draw": 0.253461,
+          "p_home": 0.421186
+        }
+      }
+    },
+    {
+      "away": "Sunderland",
+      "home": "Bournemouth",
+      "kickoff_utc": "2026-10-18T13:00:00Z",
+      "odds_open": {
+        "away": 3.440000,
+        "draw": 3.510000,
+        "home": 2.040000
+      },
+      "odds_source": "market_avg",
+      "probs": {
+        "dc_joint": {
+          "p_away": 0.222010,
+          "p_draw": 0.261735,
+          "p_home": 0.516255
+        },
+        "dc_v1": {
+          "p_away": 0.235577,
+          "p_draw": 0.277549,
+          "p_home": 0.486874
+        }
+      }
+    },
+    {
+      "away": "Crystal Palace",
+      "home": "Brighton",
+      "kickoff_utc": "2026-10-18T13:00:00Z",
+      "odds_open": {
+        "away": 5.350000,
+        "draw": 4.420000,
+        "home": 1.530000
+      },
+      "odds_source": "market_avg",
+      "probs": {
+        "dc_joint": {
+          "p_away": 0.127486,
+          "p_draw": 0.186773,
+          "p_home": 0.685741
+        },
+        "dc_v1": {
+          "p_away": 0.170505,
+          "p_draw": 0.233432,
+          "p_home": 0.596063
+        }
+      }
+    },
+    {
+      "away": "Man United",
+      "home": "Leeds",
+      "kickoff_utc": "2026-10-18T13:00:00Z",
+      "odds_open": {
+        "away": 2.820000,
+        "draw": 3.550000,
+        "home": 2.320000
+      },
+      "odds_source": "market_avg",
+      "probs": {
+        "dc_joint": {
+          "p_away": 0.314066,
+          "p_draw": 0.278575,
+          "p_home": 0.407359
+        },
+        "dc_v1": {
+          "p_away": 0.326725,
+          "p_draw": 0.286790,
+          "p_home": 0.386485
+        }
+      }
+    },
+    {
+      "away": "Arsenal",
+      "home": "Nott'm Forest",
+      "kickoff_utc": "2026-10-18T15:30:00Z",
+      "odds_open": {
+        "away": 1.600000,
+        "draw": 3.820000,
+        "home": 5.590000
+      },
+      "odds_source": "market_avg",
+      "probs": {
+        "dc_joint": {
+          "p_away": 0.534316,
+          "p_draw": 0.282412,
+          "p_home": 0.183272
+        },
+        "dc_v1": {
+          "p_away": 0.540828,
+          "p_draw": 0.286751,
+          "p_home": 0.172421
+        }
+      }
+    },
+    {
+      "away": "Coventry",
+      "home": "Tottenham",
+      "kickoff_utc": "2026-10-19T19:00:00Z",
+      "odds_open": {
+        "away": 6.230000,
+        "draw": 4.550000,
+        "home": 1.460000
+      },
+      "odds_source": "market_avg",
+      "probs": {
+        "dc_joint": {
+          "p_away": 0.342011,
+          "p_draw": 0.303508,
+          "p_home": 0.354481
+        },
+        "dc_v1": {
+          "p_away": 0.267671,
+          "p_draw": 0.297469,
+          "p_home": 0.434860
+        }
+      }
+    }
+  ],
+  "generated_at": "2026-10-16T13:00:24Z",
+  "git_commit": "e1a11811ce2c5195a9f8b6d4460c3d7b33dc93b5",
+  "git_dirty": false,
+  "live_evaluation_rule": "Evaluated once at least 150 schema-v2 matches are scored AND the last E0 2026/27 fixture (season end 2027-05-30) is scored, whichever is later. If the 95% CI (paired date-block bootstrap) of RPS(dc_joint) - RPS(dc_v1) on live matches lies entirely above 0, dc_joint is worse: revert the primary model to dc_v1. Otherwise keep dc_joint. The result is reported either way.",
+  "model_version": "0.2.0",
+  "models": {
+    "dc_joint": {
+      "lookback_days": 1095,
+      "training": {
+        "E0": {
+          "first_match_date": "2023-10-21",
+          "last_match_date": "2026-10-12",
+          "n_api_rows": 0,
+          "n_matches": 1120
+        },
+        "E1": {
+          "first_match_date": "2023-10-21",
+          "last_match_date": "2026-10-14",
+          "n_api_rows": 0,
+          "n_matches": 1643
+        },
+        "E2": {
+          "first_match_date": "2023-10-21",
+          "last_match_date": "2026-10-10",
+          "n_api_rows": 0,
+          "n_matches": 1618
+        }
+      },
+      "variant": "plain",
+      "version": "0.2.0",
+      "xi": 0.005000
+    },
+    "dc_v1": {
+      "lookback_days": 1095,
+      "training": {
+        "first_match_date": "2023-10-21",
+        "last_match_date": "2026-10-12",
+        "n_api_rows": 0,
+        "n_matches": 1120
+      },
+      "version": "0.1.0",
+      "xi": 0.003000
+    }
+  },
+  "primary_model": "dc_joint",
+  "round_id": "E0-2026-10-17",
+  "schema": "premodel/predictions/v2",
+  "stale_override": false,
+  "staleness_check": "api_completeness"
+}

@@ -1,0 +1,10 @@
+{
+  "block_time": "2026-10-16T13:03:20Z",
+  "cluster": "devnet",
+  "commitment": "3a7536bd038f77120050c241ecc2438c1310639e521f7eb09ab316fcd4dbaeb0",
+  "explorer_url": "https://explorer.solana.com/tx/EgcfHQNZHKcdU6ko6rpgDE1BNMwsrVkG6fEogoHLnSMjLTSm1B9sd6KKoZtqjpizLC7D4vg3ZZQ3szxEu3wbeiR?cluster=devnet",
+  "memo": "premodel:v1:E0-2026-10-17:3a7536bd038f77120050c241ecc2438c1310639e521f7eb09ab316fcd4dbaeb0",
+  "signature": "EgcfHQNZHKcdU6ko6rpgDE1BNMwsrVkG6fEogoHLnSMjLTSm1B9sd6KKoZtqjpizLC7D4vg3ZZQ3szxEu3wbeiR",
+  "signer": "EKjxGc617c1YqVYGPGGNZutuLcHHnoEGR1Ku5iFjJSxo",
+  "slot": 511719789
+}
