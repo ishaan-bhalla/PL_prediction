@@ -294,8 +294,33 @@ def head_to_head(frames: list[pd.DataFrame], results: pd.DataFrame) -> dict | No
                                                  tz="UTC") + pd.Timedelta(days=1))).sum())}
 
 
+def ci_shown(block: dict, min_blocks: int | None = None) -> bool:
+    """Whether a date-block bootstrap has enough distinct match dates to report its CI."""
+    need = config.MIN_BOOTSTRAP_BLOCKS if min_blocks is None else min_blocks
+    return block["n_dates"] >= need
+
+
+def h2h_line(label: str, block: dict) -> str:
+    """One head-to-head summary line: n matches and k dates always; the 95% CI only with
+    at least config.MIN_BOOTSTRAP_BLOCKS dates (a handful of blocks gives a degenerate
+    interval that looks meaningful but is not)."""
+    n, k = block["n_matches"], block["n_dates"]
+    head = f"  {label:<9} n={n} matches, k={k} dates"
+    if n == 0:
+        return f"{head}  -"
+    if not ci_shown(block):
+        return (f"{head}  {block['mean']:+.4f}  CI not shown: only {k} match dates "
+                f"(need >= {config.MIN_BOOTSTRAP_BLOCKS})")
+    lo, hi = block["ci95"]
+    return f"{head}  {block['mean']:+.4f}  95% CI [{lo:+.4f}, {hi:+.4f}]"
+
+
 def evaluation_status(h2h: dict | None, rule: dict = config.LIVE_EVALUATION) -> str:
-    """The pre-registered live rule: not yet due / keep dc_joint / revert to dc_v1."""
+    """The pre-registered live rule: not yet due / keep dc_joint / revert to dc_v1.
+
+    Once due, the CI must rest on at least config.MIN_BOOTSTRAP_BLOCKS match dates; if it
+    does not, the rule reports "not evaluable" rather than keep or revert. (At >= 150
+    matches and a season's end this cannot normally happen; the check makes sure of it.)"""
     n = h2h["n"] if h2h else 0
     end = pd.Timestamp(rule["season_end"], tz="UTC")
     season_done = bool(h2h) and h2h["last_kickoff"] >= end \
@@ -303,6 +328,9 @@ def evaluation_status(h2h: dict | None, rule: dict = config.LIVE_EVALUATION) -> 
     if n < rule["min_v2_matches"] or not season_done:
         return (f"not yet due ({n} of {rule['min_v2_matches']} schema-v2 matches scored; "
                 f"season end {rule['season_end']} {'reached' if season_done else 'not reached'})")
+    if not ci_shown(h2h["diff"]):
+        return (f"DUE but not evaluable: only {h2h['diff']['n_dates']} match dates "
+                f"(need >= {config.MIN_BOOTSTRAP_BLOCKS}); neither keep nor revert")
     lo, hi = h2h["diff"]["ci95"]
     if lo > 0:
         return f"DUE: revert the primary model to dc_v1 (95% CI [{lo:+.4f}, {hi:+.4f}] > 0)"
@@ -345,12 +373,8 @@ def summary(frames: list[pd.DataFrame], results: pd.DataFrame | None = None) -> 
     if h2h is None:
         lines.append("  (no scored schema v2 matches yet)")
     else:
-        d, nt = h2h["diff"], h2h["new_teams"]
-        lines.append(f"  all       n={h2h['n']:<5} {d['mean']:+.4f}  95% CI "
-                     f"[{d['ci95'][0]:+.4f}, {d['ci95'][1]:+.4f}]")
-        lines.append(f"  new teams n={nt['n_matches']:<5} "
-                     + (f"{nt['mean']:+.4f}  95% CI [{nt['ci95'][0]:+.4f}, {nt['ci95'][1]:+.4f}]"
-                        if nt["n_matches"] else "-")
+        lines.append(h2h_line("all", h2h["diff"]))
+        lines.append(h2h_line("new teams", h2h["new_teams"])
                      + "  (first 10 games after entering E0; non-decisive)")
     lines.append(f" live evaluation rule: {evaluation_status(h2h)}")
     return "\n".join(lines)

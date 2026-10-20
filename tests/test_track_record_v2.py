@@ -140,6 +140,8 @@ def test_head_to_head_is_a_date_block_bootstrap_over_v2_matches(env):
     text = tr.summary(frames, res)
     assert "head-to-head on schema v2 matches" in text and "non-decisive" in text
     assert "not yet due (2 of 150" in text
+    assert "all       n=2 matches, k=1 dates" in text
+    assert "CI not shown: only 1 match dates (need >= 10)" in text and "95% CI" not in text
 
 
 FIX_RESULTS = [("Arsenal", "Leeds", 2, 1, (2.0, 3.5, 3.9), "csv"),
@@ -180,8 +182,9 @@ def test_new_team_flags_mark_first_ten_e0_games_after_entering():
 
 # --- the pre-registered live evaluation rule ---------------------------------------------
 
-def h2h(n, lo, hi, last="2027-05-30T15:00:00Z", unscored=0):
-    return {"n": n, "diff": {"mean": (lo + hi) / 2, "ci95": [lo, hi]},
+def h2h(n, lo, hi, last="2027-05-30T15:00:00Z", unscored=0, n_dates=100):
+    return {"n": n, "diff": {"mean": (lo + hi) / 2, "ci95": [lo, hi], "n_matches": n,
+                             "n_dates": n_dates},
             "last_kickoff": pd.Timestamp(last), "unscored_before_season_end": unscored}
 
 
@@ -194,6 +197,10 @@ def h2h(n, lo, hi, last="2027-05-30T15:00:00Z", unscored=0):
     (h2h(150, 0.0, 0.02), "keep dc_joint"),
     (h2h(150, -0.01, 0.005), "keep dc_joint"),
     (h2h(150, -0.02, -0.01), "keep dc_joint"),
+    (h2h(150, 0.01, 0.02, n_dates=9), "DUE but not evaluable: only 9 match dates"),
+    (h2h(150, -0.02, -0.01, n_dates=9), "neither keep nor revert"),
+    (h2h(150, 0.01, 0.02, n_dates=10), "revert the primary model to dc_v1"),
+    (h2h(149, 0.01, 0.02, n_dates=3), "not yet due"),       # not due: k is irrelevant
 ])
 def test_evaluation_status_boundaries(case, expected):
     assert expected in tr.evaluation_status(case)
@@ -202,3 +209,32 @@ def test_evaluation_status_boundaries(case, expected):
 def test_rule_text_is_unchanged_from_config():
     rule = copy.deepcopy(config.LIVE_EVALUATION)
     assert rule["min_v2_matches"] == 150 and "entirely above 0" in rule["rule"]
+
+
+# --- too few date blocks for a CI -------------------------------------------------------
+
+def block(k, n=None, mean=-0.01):
+    return {"mean": mean, "ci95": [-0.03, 0.01], "n_matches": n or 3 * k, "n_dates": k}
+
+
+@pytest.mark.parametrize("k, shown", [(1, False), (3, False), (9, False), (10, True),
+                                      (11, True), (40, True)])
+def test_ci_is_suppressed_below_min_blocks_and_shown_at_or_above(k, shown):
+    assert config.MIN_BOOTSTRAP_BLOCKS == 10
+    line = tr.h2h_line("all", block(k))
+    assert line.startswith(f"  all       n={3 * k} matches, k={k} dates  -0.0100")
+    assert ("95% CI [-0.0300, +0.0100]" in line) is shown
+    assert (f"CI not shown: only {k} match dates (need >= 10)" in line) is not shown
+
+
+def test_h2h_line_with_no_matches_prints_n_and_k_only():
+    assert tr.h2h_line("new teams", {"mean": float("nan"), "ci95": [float("nan")] * 2,
+                                     "n_matches": 0, "n_dates": 0}) == \
+        "  new teams n=0 matches, k=0 dates  -"
+
+
+def test_min_bootstrap_blocks_is_read_from_config(monkeypatch):
+    monkeypatch.setattr(config, "MIN_BOOTSTRAP_BLOCKS", 3)
+    assert "95% CI" in tr.h2h_line("all", block(3))
+    assert "need >= 3" in tr.h2h_line("all", block(2))
+    assert "not evaluable" in tr.evaluation_status(h2h(150, 0.01, 0.02, n_dates=2))

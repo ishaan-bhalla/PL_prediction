@@ -34,6 +34,10 @@ XI_GRID = [0.0, 0.001, 0.0019, 0.003, 0.005]        # decay per day
 # Betting simulation
 EDGE_THRESHOLDS = [0.0, 0.03, 0.05, 0.10]
 BOOTSTRAP_SAMPLES = 5000
+# A date-block bootstrap over very few match dates gives a degenerate interval (with 3
+# dates, an end of the CI is just one date's mean). Below this many distinct dates the
+# live head-to-head prints the point estimate only. Reporting only: no decision uses it.
+MIN_BOOTSTRAP_BLOCKS = 10
 SEED = 42
 
 # Forward predictions. xi is frozen at the backtest's validation choice
